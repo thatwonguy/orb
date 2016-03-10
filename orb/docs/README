@@ -34,3 +34,18 @@ Orb: footprinting tool - by psy
        * python-nmap: https://pypi.python.org/pypi/python-nmap
 
 ----------
+
+  Orb will try to discover; ranked public links, TLDs, registrant information, machines up,
+  IPs, open ports, banners, DNS records, subdomains, ... using -concepts- as targets.
+
+-----------------
+   
+  You can use:
+
+    ./orb --check-tor
+    ./orb --gui
+
+  Or:
+
+    ./orb --spell 'microsoft'
+    ./orb --spell 'facebook' -v
