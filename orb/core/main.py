@@ -352,7 +352,7 @@ class Orb(object):
                             if options.verbose:
                                 print "\n[Verbose] Trying to discover open ports on: " + str(rdata) + "\n"
                             nm = nmap.PortScanner()
-                            nm.scan('127.0.0.1', '9049-9051') # scanning ports (1-65535)
+                            nm.scan(ip, '1-65535') # scanning ports (1-65535)
                             for host in nm.all_hosts():
                                 print('-State : %s' % nm[host].state())
                             for proto in nm[host].all_protocols():
