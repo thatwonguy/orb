@@ -10,12 +10,83 @@ with RedSquat; if not, write to the Free Software Foundation, Inc., 51
 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 from options import OrbOptions
+from update import Updater
 from orb import ClientThread
-import webbrowser, socket, traceback, sys, urllib2, urllib, re, urlparse, os, datetime
+import webbrowser, socket, traceback, sys, urllib2, urllib, re, urlparse, os, datetime, random
+import json
 
-DEBUG = 1
+# ask for libs
+try:
+    import whois
+except:
+    print "[Warning] - Error importing: whois lib. \n\n On Debian based systems:\n\n $ sudo apt-get install python-whois\n"
+    print "[Source] - Pypi-whois: https://pypi.python.org/pypi/whois\n"
+    sys.exit(2)
+try:
+    import nmap
+except:
+    print "[Warning] - Error importing: nmap lib. \n\n On Debian based systems:\n\n $ sudo apt-get install python-nmap\n"
+    print "[Source] - python-nmap: https://pypi.python.org/pypi/python-nmap\n"
+    sys.exit(2)
+try:
+    import dns.resolver
+except:
+    print "[Warning] - Error importing: dns lib. \n\n On Debian based systems:\n\n $ sudo apt-get install python-dns\n"
+    print "[Source] - Pydnspython: https://pypi.python.org/pypi/dnspython\n"
+    sys.exit(2)
+
+DEBUG = 0
 
 class Orb(object):
+    def __init__(self):
+        self.search_engines = [] # available search engines
+        self.search_engines.append('duck')
+        self.search_engines.append('google')
+        self.search_engines.append('bing')
+        self.search_engines.append('yahoo')
+        self.search_engines.append('yandex')
+        self.engine_fail = False # search engines controller
+        self.dns_Amachines = [] # used to check if ip = DNS-A records
+        self.socials = None # used to get social links from source file
+        self.news = None # used to get news links from source file
+        self.url_links = [] #  urls extracted from search engines
+        self.sub_links = [] #  subdomains extracted from search engines
+        self.extract_wikipedia_record = True # used to not repeat wikipedia descriptions
+        self.extract_financial_record = True # used to not repeat financial records
+        self.extract_ranked_links = False # used to extract ranked links on search engines
+        self.top_ranked = {}
+        self.wikipedia_texts = [] # wikipedia descriptions
+        self.social_links = {}
+        self.news_links = {}
+        self.ranked_record = 0
+        self.agents = [] # user-agents
+        self.agents.append('Mozilla/5.0 (iPhone; U; CPU iOS 2_0 like Mac OS X; en-us)')
+        self.agents.append('Mozilla/5.0 (Linux; U; Android 0.5; en-us)')
+        self.agents.append('Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)')
+        self.agents.append('Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)')
+        self.agents.append('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.2.149.29 Safari/525.13')
+        self.agents.append('Opera/9.25 (Windows NT 6.0; U; en)')
+        self.agents.append('Mozilla/2.02E (Win95; U)')
+        self.agents.append('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')
+        self.agents.append('Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)')
+        self.agents.append('Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (FM Scene 4.6.1)')
+        self.agents.append('Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (.NET CLR 3.5.30729) (Prevx 3.0.5)')
+        self.agents.append('(Privoxy/1.0)')
+        self.agents.append('CERN-LineMode/2.15')
+        self.agents.append('cg-eye interactive')
+        self.agents.append('China Local Browser 2.6')
+        self.agents.append('ClariaBot/1.0')
+        self.agents.append('Comos/0.9_(robot@xyleme.com)')
+        self.agents.append('Crawler@alexa.com')
+        self.agents.append('DonutP; Windows98SE')
+        self.agents.append('Dr.Web (R) online scanner: http://online.drweb.com/')
+        self.agents.append('Dragonfly File Reader')
+        self.agents.append('Eurobot/1.0 (http://www.ayell.eu)')
+        self.agents.append('FARK.com link verifier')
+        self.agents.append('FavIconizer')
+        self.agents.append('Feliz - Mixcat Crawler (+http://mixcat.com)')
+        self.agents.append('TwitterBot (http://www.twitter.com)')
+
     def set_options(self, options):
         self.options = options
 
@@ -46,15 +117,748 @@ class Orb(object):
             if DEBUG:
                 traceback.print_exc()
 
+    def generate_report(self): # generate raw log/report
+        if not os.path.exists('reports/'):
+            os.makedirs('reports/')
+        if not self.options.gui: # generate report when no gui
+            if not os.path.exists('reports/' + self.options.target):
+                os.makedirs('reports/' + self.options.target)
+            namefile = self.options.target + "_" + str(datetime.datetime.now())
+            if self.options.verbose:
+                print "\n[Verbose] - Generating log: " + 'reports/' + self.options.target + "/" + namefile + ".raw", "\n"
+            self.report = open('reports/' + self.options.target + "/" + namefile + ".raw", 'a') # generate .raw file
+
+    def generate_json(self): # generate json report
+        if not os.path.exists('reports/'):
+            os.makedirs('reports/')
+        if not self.options.gui: # generate report when no gui
+            if not os.path.exists('reports/' + self.options.target):
+                os.makedirs('reports/' + self.options.target)
+            namefile = self.options.json
+            if self.options.verbose:
+                print "[Verbose] - Generating JSON: " + 'reports/' + self.options.target + "/" + namefile, "\n"
+            if os.path.exists('reports/' + self.options.target + "/" + namefile):
+                os.remove('reports/' + self.options.target + "/" + namefile) # remove previous report if exists
+            self.json_report = open('reports/' + self.options.target + "/" + namefile, 'w') # generate new .json file each time
+
+    def send_request(self, url): # send requests unique point
+        user_agent = random.choice(self.agents).strip() # set random user-agent
+        referer = '127.0.0.1' # set referer to localhost / WAF black magic!
+        headers = {'User-Agent' : user_agent, 'Referer' : referer}
+        req = urllib2.Request(url, None, headers)
+        req_reply = urllib2.urlopen(req).read()
+        return req_reply
+
+    def search_using_duck(self, target): # duckduckgo.com
+        url = 'https://duckduckgo.com/html/?'
+        if self.extract_ranked_links == True: # extract ranked links
+            q = 'inurl:"' + str(target) + '"' # ex: inurl:"target"
+        else: # extract subdomains
+            q = 'site:.' + str(target) # ex: site:.target.com 
+        query_string = { 'q':q}
+        data = urllib.urlencode(query_string)
+        url = url + data
+        try:
+            req_reply = self.send_request(url)
+        except:
+            return
+        regex_s = '<a class="result__url" href="(.+?)">' # regex magics (extract urls)
+        pattern_s = re.compile(regex_s)
+        url_links = re.findall(pattern_s, req_reply)
+        return url_links
+
+    def search_using_google(self, target): # google.com
+        if self.options.engineloc: # set engine location to increase responses
+            url = 'https://www.google.' + self.options.engineloc + '/xhtml?'
+        else:
+            url = 'https://www.google.com/xhtml?'
+        if self.extract_ranked_links == True: # extract ranked links
+            q = 'inurl:"' + str(target) + '"' # ex: inurl:"target"
+        else: # extract subdomains
+            q = 'site:.' + str(target) # ex: site:.target.com 
+        start = 0 # set index number of first entry
+        num = 50 # 5 pages
+        gws_rd = 'ssl' # set SSL as default
+        query_string = { 'q':q, 'start':start, 'num':num, 'gws_rd':gws_rd }
+        data = urllib.urlencode(query_string)
+        url = url + data
+        try:
+            req_reply = self.send_request(url)
+        except:
+            return
+        regex = '<h3 class="r"><a href="/url(.+?)">' # regex magics
+        pattern = re.compile(regex)
+        url_links = re.findall(pattern, req_reply)
+        return url_links
+
+    def search_using_bing(self, target): # bing.com
+        url = 'https://www.bing.com/search?'
+        if self.extract_ranked_links == True: # extract ranked links
+            q = str(target) # inurl not allow on bing
+        else: # extract subdomains
+            q = 'site:.' + str(target) # ex: site:.target.com 
+        start = 0 # set index number of first entry
+        if self.options.engineloc: # add search engine location on query: &cc=
+            query_string = { 'q':q, 'first':start, 'cc':self.options.engineloc}
+        else:
+            query_string = { 'q':q, 'first':start }
+        data = urllib.urlencode(query_string)
+        url = url + data
+        try:
+            req_reply = self.send_request(url)
+        except:
+            return
+        regex = '<li class="b_algo"><h2><a href="(.+?)">' # regex magics
+        pattern = re.compile(regex)
+        url_links = re.findall(pattern, req_reply)
+        return url_links
+
+    def search_using_yahoo(self, target): # yahoo.com
+        if self.options.engineloc: # set engine location to increase responses
+            url = 'https://' + self.options.engineloc + '.search.yahoo.com/search?'
+        else:
+            url = 'https://search.yahoo.com/search?'
+        if self.extract_ranked_links == True: # extract ranked links
+            q = str(target)
+        else: # extract subdomains
+            q = '.' + str(target) 
+        start = 0 # set index number of first entry
+        query_string = { 'q':q, 'first':start, 'ei':'UTF-8', 'nojs':1 }
+        data = urllib.urlencode(query_string)
+        url = url + data
+        try:
+            req_reply = self.send_request(url)
+        except:
+            return
+        regex = '<h3 class="title"><a class=" ac-algo ac-21th lh-15" href="(.+?)">' # regex magics
+        pattern = re.compile(regex)
+        url_links = re.findall(pattern, req_reply)
+        return url_links
+
+    def search_using_yandex(self, target): # yandex.com
+        url = 'https://yandex.com/search/?'
+        if self.extract_ranked_links == True: # extract ranked links
+            q = str(target)
+        else: # extract subdomains
+            q = 'site:.' + str(target)
+        start = 0 # set index number of first entry
+        # generate random number on range 1-9999999999 with float point 
+        # to provide a fake redircnt (ex: 1458153459.1) / black magic!
+        try:
+            import random
+            num = random.uniform(0, 9999999999)
+        except:
+            num = 1458153459.1
+        query_string = { 'text':q, 'p':start , 'redircnt':num}
+        data = urllib.urlencode(query_string)
+        url = url + data
+        try:
+            req_reply = self.send_request(url)
+        except:
+            return
+        regex = '<a class="link serp-url__link" target="_blank" href="(.+?)"' # regex magics 16/03/2016
+        pattern = re.compile(regex)
+        url_links = re.findall(pattern, req_reply)
+        return url_links
+
+    def search_using_torch(self, target): # http://xmh57jrzrnw6insl.onion
+        try:
+            url = 'http://xmh57jrzrnw6insl.onion/5dc02cc7lc/search.cgi?'
+            q = str(target)
+            start = 0
+            query_string = { 'q':q, 'cmd':'Search!' }
+            data = urllib.urlencode(query_string)
+            url = url + data
+            try:
+                req_reply = self.send_request(url)
+            except:
+                print "- Not found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n- Deep Web: Not found!\n")
+                return
+            if "No documents were found" in req_reply: # no records found
+                print "- No documents were found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n- Deep Web: No documents were found!\n")
+            else:
+                regex = '<A HREF="(.+?)" TARGET' # regex magics - 26/03/2016
+                pattern = re.compile(regex)
+                url_links = re.findall(pattern, req_reply)
+                if not self.options.nolog: # generate log
+                    self.report.write("\n") # zen
+                for url in url_links:
+                    print "- onion ->", url
+                    if not self.options.nolog: # generate log
+                        self.report.write("- onion -> " + url + "\n")
+                        if self.options.json: # write reply to json
+                            self.json_report.write(json.dumps(['Deep Web',{'onion': url}], separators=(',', ':')))
+        except: # return when fails
+            print "- Deep Web: Not found!"
+            if not self.options.nolog: # generate log
+                self.report.write("\n- Deep Web: Not found!\n")
+            return
+
+    def extract_financial(self, target): # extract financial records
+        try: # search on yahoo financial
+            url = 'https://finance.yahoo.com/q?'
+            s = str(self.options.target).upper() # uppercase required
+            query_string = {'s':s}
+            data = urllib.urlencode(query_string)
+            url = url + data
+            try:
+                req_reply = self.send_request(url)
+            except:
+                print "- Not found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n- Financial: Not found!\n")
+                self.extract_financial_record = False
+                return
+            regex = '<div class="hd"><div class="title"><h2>(.+?)</h2>' # regex magics (company)
+            pattern = re.compile(regex)
+            names = re.findall(pattern, req_reply)
+            for name in names:
+                print "- Company:", name
+                if not self.options.nolog: # generate log
+                    self.report.write("\nCompany: " + name + "\n")
+                    if self.options.json: # write reply to json
+                        self.json_report.write(json.dumps(['Financial',{'Company': name}], separators=(',', ':')))
+            regex2 = '<span class="rtq_dash">-</span>(.+?)</span>' # regex magics (market)
+            pattern2 = re.compile(regex2)
+            stocks = re.findall(pattern2, req_reply)
+            for stock in stocks:
+                print "- Stock:", stock
+                if not self.options.nolog: # generate log
+                    self.report.write("Stock: " + stock + "\n")
+                    if self.options.json: # write reply to json
+                        self.json_report.write(json.dumps(['Financial',{'Stock': stock}], separators=(',', ':')))
+            regex3 = 'Market Cap:</th><td class="yfnc_tabledata1"><span id="yfs_(.+?)</span></td></tr><tr><th scope="row" width="48%">' # regex magics (market cap)
+            pattern3 = re.compile(regex3)
+            prizes = re.findall(pattern3, req_reply)
+            sep = '">'
+            if not prizes: # market cap is not available for some companies
+                prize = "not found!"
+                print "- Market Cap:", prize
+            else:
+                for prize in prizes:
+                    prize = prize.split(sep, 1)[1]
+                    print "- Market Cap:", prize, "$USD"
+            if not self.options.nolog: # generate log
+                self.report.write("Market Cap: " + prize + "\n")
+                if self.options.json: # write reply to json
+                    self.json_report.write(json.dumps(['Financial',{'Market Cap': prize}], separators=(',', ':')))
+            self.extract_financial_record = False
+        except: # return when fails
+            print "- Financial: Not found!"
+            if not self.options.nolog: # generate log
+                self.report.write("\n- Financial: Not found!\n")
+            self.extract_financial_record = False
+            return
+
+    def extract_social(self, url): # extract social links
+        if self.options.public: # safe/return when no extract public records option
+            return
+        if self.options.social: # safe/return when no extract social records option
+            return
+        for s in self.socials:
+            if s in url: # found record
+                self.social_links[s] = url # add s/url to dict
+            else:
+                pass
+
+    def extract_news(self, url): # extract news links (using a list from file)
+        if self.options.public: # safe/return when no extract public records option
+            return
+        if self.options.news: # safe/return when no extract news records option
+            return
+        for n in self.news:
+            if n in url: # found record
+                self.news_links[n] = url # add n/url to dict
+            else:
+                pass
+
+    def extract_wikipedia(self, url): # extract wikipedia info
+        try:
+            req_reply = self.send_request(url)
+        except:
+            return
+        regex = '<p><b>(.+?)</p>' # regex magics (description)
+        pattern = re.compile(regex)
+        descr = re.findall(pattern, req_reply)
+        for d in descr:
+            d_cleanner = re.compile('<.*?>') # clean descriptions
+            d_clean = re.sub(d_cleanner,'', d)
+            wikipedia = re.sub(r'\[.*?\]\ *', '', d_clean)
+            return wikipedia
+
+    def extract_from_engine(self, engine, target): # search using engine
+        if engine == "duck": # using duck
+            url_links = self.search_using_duck(target)
+        if engine == "google": # using google
+            url_links = self.search_using_google(target)
+        if engine == "bing": # using bing
+            url_links = self.search_using_bing(target)
+        if engine == "yahoo": #using yahoo
+            url_links = self.search_using_yahoo(target)
+        if engine == "yandex": #using yandex
+            url_links = self.search_using_yandex(target)
+        if not url_links: # not records found
+            self.engine_fail = True
+        else:     
+            for url in url_links:
+                if engine == "bing" or engine == "yahoo" or engine == "yandex": # post-parse regex magics
+                    sep = '"'
+                    url = url.split(sep, 1)[0]
+                if engine == "google":
+                    url = url.replace("?q=", "")
+                    sep = '&amp;sa='
+                    url = url.split(sep, 1)[0]
+                if self.extract_ranked_links == True: # ranked links
+                    self.url_links.append(url)
+                    if self.ranked_record == 0:
+                        self.top_ranked[engine] = url # add s/url to dict
+                        self.ranked_record = self.ranked_record + 1
+                else: # subdomains
+                    self.sub_links.append(url)
+            self.engine_fail = False
+
+    def extract_ranked(self, target, engine): # extract ranked link
+        if self.options.public: # safe/return when no extract public records option
+            return
+        self.extract_ranked_links = True # used to perform different query to search engines
+        self.ranked_record = 0 # extract ranked link
+        self.extract_from_engine(engine, target)
+        self.extract_ranked_links = False # list semaphore to off
+
+    def public_records_output(self): # output public records after parsing
+        # extract and order data gathered + report when found
+        print "="*14
+        print "*Top Ranked*:"
+        print "="*14
+        if not self.top_ranked:
+            print "- Not found!"
+            if not self.options.nolog: # generate log
+                self.report.write("\n- Top Ranked: Not found!\n\n")
+        else:
+            for key,val in self.top_ranked.items():
+                print("- {} -> {}".format(key, val))
+                if not self.options.nolog: # generate log
+                    self.report.write("- Top ranked: " + key + " -> " + val + "\n\n")
+                    if self.options.json: # write reply to json
+                        self.json_report.write(json.dumps(['Ranked',{'Engine': key, 'Top': val}], separators=(',', ':')))
+
+        if self.extract_wikipedia_record == True: # not need to repeat wikipedia descriptions on each extension
+            print "="*14
+            print "*Wikipedia*:"
+            print "="*14
+            if not self.wikipedia_texts:
+                print "- Not found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n- Wikipedia: Not found!\n")
+            else:
+                for wikipedia in self.wikipedia_texts:
+                    if wikipedia is not None:
+                        print "-", wikipedia
+                        if not self.options.nolog: # generate log
+                            self.report.write("- "+ wikipedia + "\n\n")
+                            if self.options.json: # write reply to json (non parsed ascii)
+                                self.json_report.write(json.dumps(['Wikipedia',{'Description': wikipedia}], separators=(',', ':'), ensure_ascii=False))
+        if not self.options.social:
+            print "="*14
+            print "*Social*:"
+            print "="*14
+            if not self.social_links:
+                print "- Not found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n- Social: Not found!\n")
+            else:
+                for key,val in self.social_links.items():
+                    print("- {} -> {}".format(key, val))
+                    if not self.options.nolog: # generate log
+                        self.report.write("- " + key + " -> " + val + "\n")
+                        if self.options.json: # write reply to json
+                            self.json_report.write(json.dumps(['Social',{key:val}], separators=(',', ':')))
+        if not self.options.news:
+            print "="*14
+            print "*News*:"
+            print "="*14
+            if not self.news_links:
+                print "- Not found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n- News: Not found!\n")
+            else:
+                for key,val in self.news_links.items():
+                    print("- {} -> {}".format(key, val))
+                    if not self.options.nolog: # generate log
+                        self.report.write("- " + key + " -> " + val + "\n")
+                        if self.options.json: # write reply to json
+                            self.json_report.write(json.dumps(['News',{key:val}], separators=(',', ':')))
+
+    def extract_public(self, target): # extract general public records
+        if self.options.public: # safe/return when no extract public records option
+            return
+        if self.options.allengines: # search using all search engines available (pass to next when fails)
+            for engine in self.search_engines:
+                self.extract_ranked(target, engine)
+        else:
+            if self.options.engine:
+                if self.options.engine in self.search_engines:
+                    engine = str(self.options.engine)
+                else:
+                    engine = "duck"
+                    print "\n- You are setting a non supported search engine. Using default: " + engine + "\n"
+            else:
+                engine = "duck" # used by default
+            self.extract_ranked(target, engine)
+        if self.engine_fail == True: # pass other tests when no urls
+            if not self.options.allengines:
+                print "\n- [" + target + "] -> Not any link found using:",  engine + "\n"
+            if not self.options.nolog: # generate log
+                self.report.write("\n***[Info] - [" + target + "] -> Not any link found using: " + engine + "\n\n")
+        else:
+            for url in self.url_links: # search on results retrieved by all engines used
+                if self.extract_wikipedia_record == True: # extract mode
+                    if "wikipedia.org" in url: # wikipedia record!
+                        wikipedia = self.extract_wikipedia(url) # extract data from wikipedia
+                        if wikipedia not in self.wikipedia_texts: # not repeat entries
+                            self.wikipedia_texts.append(wikipedia)
+                if not self.options.social:
+                    self.extract_social(url)
+                if not self.options.news:
+                    self.extract_news(url)
+        self.public_records_output() # output parsed public records
+        if not self.options.deep: # search for deep web records
+            print "="*14
+            print "*Deep Web*:"
+            print "="*14
+            self.search_using_torch(target)
+        if not self.options.financial: # search for financial records
+            if self.extract_financial_record == True: # extract mode
+                print "="*14
+                print "*Financial*:"
+                print "="*14
+                self.extract_financial(target)
+                self.extract_financial_record = False
+
+
+    def extract_whois(self, target): # extract whois data from target domain
+        print "="*14
+        print "*Whois*:"
+        print "="*14
+        try:
+            domain = whois.query(target, ignore_returncode=True) # ignore return code
+            if domain.creation_date is None: # return when no creation date
+                if self.options.verbose:
+                    print "- Not found!\n"
+                    if not self.options.nolog: # generate log
+                        self.report.write("- Whois: Not found!\n\n")
+                return
+        except: # return when fails performing query
+            print "- Not found!"
+            if not self.options.nolog: # generate log
+                self.report.write("- Whois: Not found!\n\n")
+            return
+        else:
+            print "- Domain: " + str(domain.name)
+            print "- Registrant: " + str(domain.registrar)
+            print "- Creation date: " + str(domain.creation_date)
+            print "- Expiration: " + str(domain.expiration_date)
+            print "- Last update: " + str(domain.last_updated)
+            if not self.options.nolog: # write reply to log
+                self.report.write("- Domain: " + str(domain.name) + "\n")
+                self.report.write("- Registrant: " + str(domain.registrar) + "\n")
+                self.report.write("- Creation date: " + str(domain.creation_date) + "\n")
+                self.report.write("- Expiration: " + str(domain.expiration_date) + "\n")
+                self.report.write("- Last update: " + str(domain.last_updated) + "\n")
+                if self.options.json: # write reply to json
+                    self.json_report.write(json.dumps(['Whois',{'Domain': str(domain.name), 'Registrant': str(domain.registrar),'Creation date': str(domain.creation_date),'Expiration': str(domain.expiration_date),'Last update': str(domain.last_updated)}], separators=(',', ':')))
+
+    def extract_cvs(self, cve_info): # using CVE extended detail from web.nvd.nist.gov
+        url = 'https://web.nvd.nist.gov/view/vuln/detail?vulnId'
+        q = str(cve_info) # product extracted from scanner  
+        query_string = { '':q}
+        data = urllib.urlencode(query_string)
+        url = url + data
+        if self.options.verbose:
+            print "\n[Verbose] - CVS database query used:", url + "\n"
+        try:
+            req_reply = self.send_request(url)
+        except:
+            if self.options.verbose:
+                print('\n[Error] - Cannot extract CVS records...\n')
+            return
+        regex_cvs = '<p>(.+?)</p>\r' # regex magics
+        pattern_cvs = re.compile(regex_cvs)
+        cvs = re.findall(pattern_cvs, req_reply)
+        for cvs_desc in cvs: 
+            cvs_desc = cvs_desc.replace('This is a potential security issue, you are being redirected to <a href="http://nvd.nist.gov">http://nvd.nist.gov</a','')
+            cvs_desc = cvs_desc.replace("<strong>", "")
+            cvs_desc = cvs_desc.replace("</strong>", "")
+            sep = '<'
+            cvs_desc = cvs_desc.split(sep, 1)[0]
+            cvs_desc = cvs_desc.replace(">","-----") 
+            print "          ", cvs_desc # 10 tab for zen
+            if not self.options.nolog: # write reply to log
+                self.report.write("          " + cvs_desc + "\n")
+                if self.options.json: # write reply to json
+                    self.json_report.write(json.dumps(['CVS',{'Description': str(cvs_desc)}], separators=(',', ':')))
+
+    def extract_cve(self, product): # extract vulnerabilities from CVE database
+        url = 'https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword'
+        q = str(product) # product extracted from scanner 
+        query_string = { '':q}
+        data = urllib.urlencode(query_string)
+        url = url + data
+        if self.options.verbose:
+            print "\n[Verbose] - CVE database query used:", url + "\n"
+        try:
+            req_reply = self.send_request(url)
+        except:
+            if self.options.verbose:
+                print('\n[Error] - Cannot resolve CVE records...\n')
+            return
+        if req_reply == "": # no records found
+            print "- Not any record found on CVE database!"
+            if not self.options.nolog: # write reply to log
+                self.report.write("- Not any record found on CVE database!" + "\n")
+        regex_s = '<td valign="top" nowrap="nowrap"><a href="(.+?)">' # regex magics
+        pattern_s = re.compile(regex_s)
+        CVE_links = re.findall(pattern_s, req_reply)
+        for cve in CVE_links:
+            cve_info = cve.replace("/cgi-bin/cvename.cgi?name=","")
+            print "\n        +", cve_info, "->", "https://cve.mitre.org" + cve # 8 tab for zen
+            if not self.options.nolog: # write reply to log
+                self.report.write("\n        +" + cve_info + "->" + "https://cve.mitre.org" + cve + "\n")
+                if self.options.json: # write reply to json
+                    self.json_report.write(json.dumps(['CVE',{'ID': str(cve_info), 'Link': "https://cve.mitre.org" + str(cve)}], separators=(',', ':')))
+            if not self.options.cvs: # extract description from vulnerability (CVS)
+                self.extract_cvs(cve_info)
+
+    def search_subdomains(self, target): # try to extract subdomains from target domain (1. using search engines)
+        # extract subdomains using search engines results (taking data from 'past')
+        self.extract_ranked_links = False # use correct subdomains query term on search engines
+        print "="*14
+        print "*Subdomains*:"
+        print "="*14
+        for engine in self.search_engines:
+            self.extract_from_engine(engine, target)
+        if not self.sub_links: # not records found
+            print "- Not any subdomain found!"
+            if not self.options.nolog: # write reply to log
+                self.report.write("- Subdomains: Not any found!" + "\n\n")
+        else:
+            record_s = 0
+            short = "." + str(target)
+            subdomains = []
+            for url in self.sub_links:
+                if "www." in url:
+                    url = url.replace("www.", "") # remove www.
+                if short in url: # subdomain
+                    url_s = urlparse.urlparse(url)
+                    subdomain = str(url_s.hostname.split('.')[0] + "." + str(target))
+                    if not subdomain in subdomains:
+                        subdomains.append(subdomain)
+            for s in subdomains:
+                print "- " + s
+                if not self.options.nolog: # write reply to log
+                    self.report.write("Subdomain: " + s + "\n")
+                    if self.options.json: # write reply to json
+                        self.json_report.write(json.dumps(['Subdomains',{'Subdomain': str(s)}], separators=(',', ':')))
+                record_s = record_s + 1
+            if record_s == 0:
+                print "- Not any subdomain found!"
+                if not self.options.nolog: # write reply to log
+                    self.report.write("- Subdomains: Not any found!" + "\n\n")
+
+    def resolve_ip(self, target): # try to resolve an ip from target domain
+        data = socket.gethostbyname_ex(target) # reverse resolve target
+        for ip in data[2]:
+            self.ip = ip
+            print "- " + str(ip)
+            if not self.options.nolog: # write reply to log
+                self.report.write("\nIP: " + str(ip) + "\n\n")
+                if self.options.json: # write reply to json
+                    self.json_report.write(json.dumps(['Server',{'IP': str(ip)}], separators=(',', ':')))
+        return ip
+
+    def scan_target(self, target): # try to discover Open Ports
+        if self.options.scanner: # safe/return when no scanning option
+            return
+        open_ports = 0 # open ports counter
+        if not self.options.proto:
+            proto = "TCP+UDP"
+        else:
+            proto = "TCP"
+            #proto = str(self.options.proto)
+            #proto = proto.upper()
+        nm = nmap.PortScanner()
+        if self.options.ports:
+            ports = self.options.ports
+        else:
+            ports = '1-65535' # scanning all ports by default (1-65535)
+        #if proto == "UDP": # scan UDP ports (UDP Scan)   
+        #    nm.scan(str(target), str(ports), arguments='-sU -sV', sudo=False)
+        #    if self.options.verbose:
+        #        print "-Using:", nm.command_line()
+        if proto == "TCP": # scan TCP ports (TCP connect()+Service scan)   
+            nm.scan(str(target), str(ports), arguments='-sT -sV', sudo=False)
+            if self.options.verbose:
+                print "-Using:", nm.command_line()
+        elif proto == "TCP+UDP": # scan TCP+UDP ports (NoPing+Service scan)
+            nm.scan(str(target), str(ports), arguments='-PN -sV', sudo=False)
+            if self.options.verbose:
+                print "-Using:", nm.command_line()
+        #else:
+        #    print "\n[Info] - You are not setting a supported protocol. Options are: 'UDP', 'TCP' or 'TCP+UDP'.\n"
+        #    nm.scan(str(target), str(ports), arguments='-PN -sV', sudo=False) # (NoPing+Service scan) 
+        #    if self.options.verbose:
+        #        print "-Using:", nm.command_line()
+        for host in nm.all_hosts():
+            print('\n   * Host : %s' % host)
+            if not self.options.nolog: # write reply to log
+                self.report.write('\n   * Host : ' + str(host) + "\n")
+            print('   * State : %s' % nm[host].state())
+            if not self.options.nolog: # write reply to log
+                self.report.write('   * State : ' + str(nm[host].state()) + "\n")
+            for proto in nm[host].all_protocols():
+                print('    - Protocol : %s' % proto)
+                if not self.options.nolog: # write reply to log
+                    self.report.write("    - Protocol: " + proto + "\n")
+                    if self.options.json: # write json report
+                        self.json_report.write(json.dumps(['Scanner',{'Protocol': str(proto)}], separators=(',', ':')))
+                lport = nm[host][proto].keys()
+                lport.sort()
+                for port in lport:
+                    if not self.options.banner: # extract banners from services discovered
+                        if str(nm[host][proto][port]['state']) == "open": # results open ports+banner
+                            print "      + Port:", port, "(", nm[host][proto][port]['state'], ") -", nm[host][proto][port]['product'], " |", nm[host][proto][port]['version'], nm[host][proto][port]['name'], nm[host][proto][port]['extrainfo'], nm[host][proto][port]['cpe']
+                            if not self.options.nolog: # write reply to log
+                                self.report.write("      + Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ") - " +  str(nm[host][proto][port]['product']) + str(nm[host][proto][port]['version']) + str(nm[host][proto][port]['name']) + str(nm[host][proto][port]['extrainfo']) + str(nm[host][proto][port]['cpe']) + "\n")
+                                if self.options.json: # write json report
+                                    self.json_report.write(json.dumps(['Scanner',{'Port': str(port), 'State': str(nm[host][proto][port]['state']), 'Version': str(nm[host][proto][port]['version']), 'Name': str(nm[host][proto][port]['name']), 'Info': str(nm[host][proto][port]['extrainfo']), 'CPE': str(nm[host][proto][port]['cpe'])}], separators=(',', ':')))
+                            open_ports = open_ports + 1
+                            if not self.options.cve: # extract vulnerabilities from CVE (Common Vulnerabilities and Exposures)
+                                product = str(nm[host][proto][port]['product'])
+                                cve = self.extract_cve(product)
+                    else: # not extract banners
+                        if str(nm[host][proto][port]['state']) == "open": # only results when open port
+                            print "      + Port:", port, "(", nm[host][proto][port]['state'], ")"
+                            if not self.options.nolog: # write reply to log
+                                self.report.write("     + Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ")")
+                                if self.options.json: # write json report
+                                    self.json_report.write(json.dumps(['Scanner',{'Port': str(port), 'State': str(nm[host][proto][port]['state'])}], separators=(',', ':')))
+                            open_ports = open_ports + 1
+                        if self.options.filtered: # add filtered ports to results
+                            if str(nm[host][proto][port]['state']) == "filtered": # results filtered ports (no banners)
+                                print "      + Port:", port, "(", nm[host][proto][port]['state'], ")"
+                                if not self.options.nolog: # write reply to log
+                                    self.report.write("     + Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ")")
+                                    if self.options.json: # write json report
+                                        self.json_report.write(json.dumps(['Scanner',{'Port': str(port), 'State': str(nm[host][proto][port]['state'])}], separators=(',', ':')))
+                if not open_ports > 0:
+                    print "\n- Not any open port found!"
+                    if not self.options.nolog: # write reply to log
+                        self.report.write("\n- Not any open port found + \n\n")
+
+    def resolve_dns(self, target): # try to discover DNS records + perform portscanning
+        resolver = dns.resolver.Resolver()
+        if self.options.resolv: # use DNS resolver provided by user
+            resolvers = str(self.options.resolv)
+            resolvers = resolvers.split(",")
+            resolver.nameservers = resolvers
+            if self.options.verbose:
+                print "[Verbose] - Using DNS resolvers: [" + self.options.resolv + "]\n"
+        else: # use default Google Inc. DNS resolvers (8.8.8.8, 8.8.4.4)
+            resolver.nameservers = ['8.8.8.8', '8.8.4.4'] # google DNS resolvers
+            if self.options.verbose:
+                print "[Verbose] - Using DNS resolvers: [8.8.8.8, 8.8.4.4]\n"
+        try:
+            answers = resolver.query(target, "A") # A records
+            for rdata in answers:
+                print "- [A]:", rdata
+                self.dns_Amachines.append(rdata)
+                if not self.options.nolog: # write reply to log
+                    self.report.write("- DNS [A]: " + str(rdata) + "\n")
+                    if self.options.json: # write json report
+                        self.json_report.write(json.dumps(['DNS',{'A': str(rdata)}], separators=(',', ':')))
+                if not self.options.scanner: # try port-scanner on DNS-A records
+                    if not self.options.scandns:
+                        scanner = self.scan_target(rdata)
+                print "" # zen output
+            print "-"*12
+            if not self.options.nolog: # write reply to log
+                self.report.write("-"*12 + "\n")
+        except:
+            pass
+        try:
+            answers = resolver.query(target, "NS") # NS records
+            for rdata in answers:
+                rdata = str(rdata) # NS records ends with "." (removing)
+                rdata = rdata[:-1]
+                data = socket.gethostbyname_ex(rdata) # reverse resolve NS server
+                for ip in data[2]:
+                    self.ip = ip
+                print "- [NS]:", rdata, "(" + str(self.ip) + ")"
+                if not self.options.nolog: # write reply to log
+                    self.report.write("- DNS [NS]: " + str(rdata) + "(" + str(self.ip) + ")" + "\n")
+                    if self.options.json: # write json report
+                        self.json_report.write(json.dumps(['DNS',{'NS': str(rdata)}], separators=(',', ':')))
+                if not self.options.scanner:
+                    if not self.options.scandns:
+                        if not self.options.scanns: # try port-scanner on DNS-NS records
+                            scanner = self.scan_target(rdata)
+                print "" # zen output
+            print "-"*12
+            if not self.options.nolog: # write reply to log
+                self.report.write("-"*12 + "\n")
+        except:
+            pass
+        try:
+            answers = resolver.query(target, "MX") # MX records
+            for rdata in answers:
+                rdata = str(rdata) # MX records ends with "." (removing)
+                rdata = rdata[:-1]
+                rdata = rdata.replace("10 ", "") # MX records starts with "10 " (removing)
+                data = socket.gethostbyname_ex(rdata) # reverse resolve MX server (mailserver)
+                for ip in data[2]:
+                    self.ip = ip
+                print "- [MX]:", rdata, "(" + str(self.ip) + ")"
+                if not self.options.nolog: # write reply to log
+                    self.report.write("- DNS [MX]: " + str(rdata) + "(" + str(self.ip) + ")" + "\n")
+                    if self.options.json: # write json report
+                        self.json_report.write(json.dumps(['DNS',{'MX': str(rdata)}], separators=(',', ':')))
+                if not self.options.scanner: # try port-scanner on DNS-MX records
+                    if not self.options.scandns:
+                        if not self.options.scanmx:
+                            scanner = self.scan_target(rdata)
+                print "" # zen output
+            print "-"*12
+            if not self.options.nolog: # write reply to log
+                self.report.write("-"*12 + "\n")
+        except: #pass when no MX records
+            pass
+        try:
+            answers = resolver.query(target, "TXT") # TXT records
+            for rdata in answers:
+                print "- [TXT]:", rdata
+                if not self.options.nolog: # write reply to log
+                    self.report.write("- DNS [TXT]: " + str(rdata) + "\n")
+                    if self.options.json: # write json report
+                        self.json_report.write(json.dumps(['DNS',{'TXT': str(rdata)}], separators=(',', ':')))
+            print "-"*12
+            if not self.options.nolog: # write reply to log
+                self.report.write("-"*12 + "\n")
+        except: #pass when no TXT records
+            pass
+
     def run(self, opts=None):
         if opts:
             options = self.create_options(opts)
             self.set_options(options)
         options = self.options
-
+        if not self.options.gui: # generate report when no gui
+            self.banner()
         # check tor connection
         if options.checktor:
-            self.banner()
             try:
                 print("\nSending request to: https://check.torproject.org\n")
                 tor_reply = urllib2.urlopen("https://check.torproject.org").read()
@@ -67,328 +871,210 @@ class Orb(object):
                     print("Your IP address appears to be: " + your_ip + "\n")
             except:
                 print("Cannot reach TOR checker system!. Are you correctly connected?\n")
-
-        # spell multidimensional footprinting (+reporting)
+            sys.exit(2)
+       # check/update for latest stable version
+        if options.update:
+            try:
+                print("\nTrying to update automatically to the latest stable version\n")
+                Updater()
+            except:
+                print("\nSomething was wrong!. You should clone Orb manually with:\n")
+                print("$ git clone https://github.com/epsylon/orb\n")
+            sys.exit(2)
+        # logging / reporting
+        if not options.nolog: # generate log
+            self.generate_report()
+            if options.json: # generate json report
+                self.generate_json()
+        # footprinting (only passive)
+        if options.passive:
+            self.options.scanner = True # not scan ports on machines
+            self.options.scandns = True # not scan on DNS records
+            self.options.scanns = True # not scan on NS records
+            self.options.scanmx = True # not scan on MX records
+            self.options.banner = True # not banner grabbing
+            self.options.cve = True # not CVE
+            self.options.cvs = True # not CVS
+        # footprinting (only active)
+        if options.active:
+            self.options.public = True # not search for public records
+            self.options.financial = True # not search for financial records
+            self.options.deep = True # not search for deep web records
+            self.options.social = True # not search for social records
+            self.options.news = True # not search for news records
+            self.options.whois = True # not extract whois information
+            self.options.subs = True # not try to discover subdomains (with passive methods) / bruteforce ¿next release? :)
+        # footprinting (full) / by default
         if options.target:
-            self.banner()
-            if not os.path.exists('reports/'):
-                os.makedirs('reports/')
-            if not os.path.exists('reports/' + options.target):
-                os.makedirs('reports/' + options.target)
-            namefile = options.target + "_" + str(datetime.datetime.now())
-            print "\nGenerating log files at:", 'reports/' + options.target + "/", "\n"
-            print "-"*22
-            fout = open('reports/' + options.target + "/" + namefile + ".raw", 'a') # generate .raw file
-            # level -2: finances (yahoo)
-            url = 'https://finance.yahoo.com/q?'
-            s = str(options.target).upper() # uppercase required
-            query_string = { 's':s}
-            data = urllib.urlencode(query_string)
-            url = url + data
-            if options.verbose:
-                print "[Verbose] Trying query to: 'Yahoo' finances database ...\n"
-            headers = {'User-Agent' : 'DonutP; Windows98SE', 'Referer' : '127.0.0.1'} 
-            try:
-                req = urllib2.Request(url, None, headers)
-                req_reply = urllib2.urlopen(req).read()
-            except:
-                print('\n[Error] - Unable to spell an orb ...\n')
-                return
-            regex = '<div class="hd"><div class="title"><h2>(.+?)</h2>' # regex magics (company)
-            pattern = re.compile(regex)
-            names = re.findall(pattern, req_reply)
-            for name in names:
-                print "-Company:", name
-                fout.write("Company: " + name + "\n")
-            regex2 = '<span class="rtq_dash">-</span>(.+?)</span>' # regex magics (market)
-            pattern2 = re.compile(regex2)
-            stocks = re.findall(pattern2, req_reply)
-            for stock in stocks:
-                print "-Market:", stock
-                fout.write("Market: " + stock + "\n")
-            fout.write("-"*22+ "\n")
-            # level -1: social sites- ranked + top
-            url = 'https://duckduckgo.com/html/?'
-            q = 'inurl:"' + str(options.target) + '"'
-            start = 0 
-            query_string = { 'q':q, 's':start }
-            data = urllib.urlencode(query_string)
-            url = url + data
-            headers = {'User-Agent' : 'Crawler@alexa.com', 'Referer' : 'alexa.com'} 
-            try:
-                req = urllib2.Request(url, None, headers)
-                req_reply = urllib2.urlopen(req).read()
-            except:
-                print('\n[Error] - Your orb has been destroyed ...\n')
-                return
-            if req_reply == "": # no records found.
-                print "- Not any record found on search engine"
-                fout.write("- Not any record found on search engine" + "\n")
-            regex = '<a class="result__url" href="(.+?)">' # regex magics
-            pattern = re.compile(regex)
-            url_links = re.findall(pattern, req_reply)
-            print "="*60
-            print "Gathering ranked public links..."
-            print "="*60
-            ranked = 0
-            record = 0
-            for url in url_links:
-                if ranked == 0:
-                    print "+TOP: " + url
-                    fout.write("+TOP: "+ url+ "\n")
-                    ranked = ranked + 1
-                    print "-"*22
-                    fout.write("-"*22 + "\n")
-                if "wikipedia.org" in url: # wikipedia
-                    print "-Wikipedia: " + url
-                    fout.write("Wikipedia: " + url + "\n")
-                    record = record + 1
-                elif "youtube.com" in url: # youtube
-                    print "-Youtube: " + url
-                    fout.write("Youtube: " + url + "\n")
-                    record = record + 1
-                elif "linkedin.com" in url: # linkedin
-                    print "-Linkedin: " + url
-                    fout.write("Linkedin: " + url + "\n")
-                    record = record + 1
-                elif "github.com" in url: # github
-                    print "-Github: " + url
-                    fout.write("Github: " + url + "\n")
-                    record = record + 1
-                elif "twitter.com" in url: # twitter
-                    print "-Twitter: " + url
-                    fout.write("Twitter: " + url + "\n")
-                    record = record + 1
-                elif "facebook.com" in url: # facebook
-                    print "-Facebook: " + url
-                    fout.write("Facebook: " + url + "\n")
-                    record = record + 1
-                elif "pinterest.com" in url: # pinterest
-                    print "-Pinterest: " + url
-                    fout.write("Pinterest: " + url + "\n")
-                    record = record + 1
-                elif "plus.google.com" in url: # google+
-                    print "-Google+: " + url
-                    fout.write("Google+: " + url + "\n")
-                    record = record + 1
-            if record == 0:
-                print "- Not any record found on social sites"
-                fout.write("- Not any record found on social sites" + "\n")
-
-            # level 0: targeting (multidimensional extensions) / ip + dns records
+            # public records / deepweb, financial, social, news ...
+            if not options.public: # search for public records
+                print "="*60
+                print "Retrieving general data ..."
+                print "="*60
+                if not options.social: # retrieve social urls
+                    if not options.socialf: # try default list
+                        f = open('core/sources/social.txt')
+                    else: # extract social links from list provided by user
+                        try:
+                            f = open(options.socialf)
+                        except:
+                            if os.path.exists(options.socialf) == True:
+                                print '[Error] - Cannot open:', options.socialf, "\n"
+                                return
+                            else:
+                                print '[Error] - Cannot found:', options.socialf, "\n"
+                                return
+                    self.socials = f.readlines()
+                    self.socials = [ social.replace('\n','') for social in self.socials ]
+                    f.close()
+                if not options.news: # retrieve news urls
+                    if not options.newsf: # try default list
+                        f = open('core/sources/news.txt')
+                    else: # extract social news from list provided by user
+                        try:
+                            f = open(options.newsf)
+                        except:
+                            if os.path.exists(options.newsf) == True:
+                                print '[Error] - Cannot open:', options.newsf, "\n"
+                                return
+                            else:
+                                print '[Error] - Cannot found:', options.newsf, "\n"
+                                return
+                    self.news = f.readlines()
+                    self.news = [ new.replace('\n','') for new in self.news ]
+                    f.close()
+                public = self.extract_public(options.target)
+                if not options.nolog: # generate log
+                    self.report.write("-"*22 + "\n")
+            # domains / extract extensions from source provided (comma separated)
             print "="*60
             print "Retrieving data by TLDs ..."
             print "="*60
-            tld_record = 0
-            try:
-                import whois
-            except:
-                print "[Warning] Error importing: whois lib. \n\n On Debian based systems:\n\n $ sudo apt-get install python-whois\n"
-                sys.exit(2)
-            try:
-                import nmap
-            except:
-                print "[Warning] Error importing: nmap lib. \n\n On Debian based systems:\n\n $ sudo apt-get install python-nmap\n"
-                sys.exit(2)
-            try:
-                import dns.resolver
-            except:
-                print "[Warning] Error importing: dns lib. \n\n On Debian based systems:\n\n $ sudo apt-get install python-dns\n"
-                sys.exit(2)
-
-            extensions = ['.com', '.org', '.net', '.ac', '.ad', '.ae', '.af', '.ag', '.ai', '.al', '.am', '.an', '.ao', '.aq', '.ar', '.as', '.at', '.au', '.aw', '.ax', '.az', '.ba', '.bb', '.bd', '.be', '.bf', '.bg', '.bh', '.bi', '.bj', '.bm', '.bn', '.bo', '.br', '.bs', '.bt', '.bv', '.bw', '.by', '.bz', '.ca', '.cc', '.cd', '.cf', '.cg', '.ch', '.ci', '.ck', '.cl', '.cm', '.cn', '.co', '.cr', '.cs', '.cu', '.cv', '.cx', '.cy', '.cz', '.dd', '.de', '.dj', '.dk', '.dm', '.do', '.dz', '.ec', '.ee', '.eg', '.eh', '.er', '.es', '.et', '.eu', '.fi', '.fj', '.fk', '.fm', '.fo', '.fr', '.ga', '.gb', '.gd', '.ge', '.gf', '.gg', '.gh', '.gi', '.gl', '.gm', '.gn', '.gp', '.gq', '.gr', '.gs', '.gt', '.gu', '.gw', '.gy', '.hk', '.hm', '.hn', '.hr', '.ht', '.hu', '.id', '.ie', '.il', '.im', '.in', '.io', '.iq', '.ir', '.is', '.it', '.je', '.jm', '.jo', '.jp', '.ke', '.kg', '.kh', '.ki', '.km', '.kn', '.kp', '.kr', '.kw', '.ky', '.kz', '.la', '.lb', '.lc', '.li', '.lk', '.lr', '.ls', '.lt', '.lu', '.lv', '.ly', '.ma', '.mc', '.md', '.me', '.mg', '.mh', '.mk', '.ml', '.mm', '.mn', ',mo', '.mp', '.mq', '.mr', '.ms', '.mt', '.mu', '.mv', '.mw', '.mx','.my', '.mz', '.na', '.nc', '.ne', '.nf', '.ng', '.ni', '.nl', '.no', '.np', '.nr', '.nu', '.nz', '.nz', '.om', '.pa', '.pe', '.pf', '.pg', '.ph', '.pk', '.pl', '.pm', '.pn', '.pr', '.ps', '.pt', '.pw', '.py', '.qa', '.re', '.ro', '.rs', '.ru', '.rw', '.sa', '.sb', '.sc', '.sd', '.se', '.sg', '.sh', '.si', '.sj', '.sk', '.sl', '.sm', '.sn', '.so', '.sr', '.st', '.su', '.sv', '.sy', '.sz', '.tc', '.td', '.tf', '.tg', '.th', '.tj', '.tk', '.tl', '.tm', '.tn', '.to', '.tp', '.tr', '.tt', '.tv', '.tw', '.tz', '.ua', '.ug', '.uk', '.us', '.uy', '.uz', '.va', '.vc', '.ve', '.vg', '.vi', '.vn', '.vu', '.wf', '.ws', '.ye', '.yt', '.za', '.zm', '.zw', ] # original + country (09/03/2016 -> IANA 
-            for e in extensions:
-                target = str(options.target + e)
-                if options.verbose:
-                    print "[Verbose] Trying whois to: " + target + "\n"
+            tld_record = False # tld records
+            self.extract_wikipedia_record = False
+            if options.ext: # by user
+                extensions = [str(options.ext)]
+                extensions = options.ext.split(",")
+                print "\n[Info] - Using extensions provided by user...\n"
+            elif options.extfile: # from file
                 try:
-                    domain = whois.query(target, ignore_returncode=True) # ignore return code
-                    if domain.creation_date is None: # ignore when no creation date
-                        pass
-                except: # ignore when fails performing query
-                    pass
-                else:
-                    fout.write("="*22 + "\n")
-                    print "-Domain: " + str(domain.name)
-                    fout.write("Domain: " + str(domain.name) + "\n")
-                    print "-Registrant: " + str(domain.registrar)
-                    fout.write("Registrant: " + str(domain.registrar) + "\n")
-                    print "-Creation date: " + str(domain.creation_date)
-                    fout.write("Creation date: " + str(domain.creation_date) + "\n")
-                    print "-Expiration: " + str(domain.expiration_date)
-                    fout.write("Expiration: " + str(domain.expiration_date) + "\n")
-                    print "-Last update: " + str(domain.last_updated) + "\n"
-                    fout.write("Last update: " + str(domain.last_updated) + "\n\n")
-                    if options.verbose:
-                        print "[Verbose] Trying to resolve public subdomains for:", str(options.target + e), "\n"
-                    url = 'https://duckduckgo.com/html/?'
-                    q = 'site:.' + str(options.target + e) # ex: site:.target.com 
-                    query_string = { 'q':q}
-                    data = urllib.urlencode(query_string)
-                    url = url + data
-                    headers = {'User-Agent' : 'Crawler@alexa.com', 'Referer' : 'alexa.com'} 
-                    try:
-                        req = urllib2.Request(url, None, headers)
-                        req_reply = urllib2.urlopen(req).read()
-                    except:
-                        print('\n[Error] - Your orb has been lost ...\n')
+                    print "\n[Info] - Extracting extensions from file...\n"
+                    f = open(options.extfile)
+                    extensions = f.readlines()
+                    extensions = [ ext.replace('\n','') for ext in extensions ]
+                    f.close()
+                    if not extensions:
+                        print "[Error] - Cannot extract 'extensions' from file.\n"
                         return
-                    if req_reply == "": # no records found
-                        print "- Not any record found for subdomains on search engine"
-                        fout.write("- Not any record found for subdomains on search engine" + "\n")
-                    regex_s = '<a class="result__url" href="(.+?)">' # regex magics
-                    pattern_s = re.compile(regex_s)
-                    url_links = re.findall(pattern_s, req_reply)
-                    record_s = 0
-                    short = "." + str(options.target + e)
-                    subdomains = []
-                    for url in url_links:
-                        if short in url: # subdomain
-                            url_s = urlparse.urlparse(url)
-                            subdomain = str(url_s.hostname.split('.')[0] + "." + str(options.target + e))
-                            if not 'www.' in subdomain: # parse www.
-                                if not subdomain in subdomains:
-                                    subdomains.append(subdomain)
-                                else:
+                except:
+                    if os.path.exists(options.extfile) == True:
+                        print '[Error] - Cannot open:', options.extfile, "\n"
+                        return 
+                    else:
+                        print '[Error] - Cannot found:', options.extfile, "\n"
+                        return
+            else: # IANA (default) original + country (09/03/2016)
+                print "\n[Info] - Using extensions supported by IANA...\n"
+                f = open("core/sources/iana-exts.txt") # extract IANA list provided by default
+                extensions = f.readlines()
+                extensions = [ ext.replace('\n','') for ext in extensions ]
+                f.close()
+                if not extensions:
+                    print "[Error] - Cannot extract 'IANA extensions' from file.\n"
+                    return
+            for e in extensions: # extract domain info and perform different tasks
+                target = str(options.target + e)
+                print "="*40
+                print "Trying TLD:", target
+                print "="*40
+                # public records (by extension)
+                if not options.public: # search for public records
+                    # clear previous data to reuse containers
+                    self.url_links[:] = [] # clear a list / black magic!
+                    self.top_ranked.clear() # clear top ranked dict
+                    self.social_links.clear() # clear social dict
+                    self.news_links.clear() # clear news dict
+                    public = self.extract_public(target)
+                # whois
+                if not options.whois: # try to extract whois data
+                    if options.verbose:
+                        print "[Verbose] - Trying whois to: " + target + "\n"
+                    whois = self.extract_whois(target)
+                # subdomains
+                if not options.subs: # try to discover subdomains on target domain
+                    if options.verbose:
+                        print "\n[Verbose] - Trying to resolve subdomains for:", target, "\n"
+                    self.sub_links[:] = [] # clear subs list
+                    try:
+                        subdomains = self.search_subdomains(target)
+                    except:
+                        print "- Not any subdomain found using TLD:", target
+                        if not options.nolog: # generate log
+                            self.report.write("- Subdomains: Not any subdomain found using TLD provided: " + target + "\n\n")
+                            if options.json: # generate json
+                                self.json_report.write(json.dumps(['Subdomains',{target: 'not any subdomain found'}], separators=(',', ':')))
+                # ip
+                print "="*14
+                print "*IP*:"
+                print "="*14
+                if options.verbose:
+                    print "\n[Verbose] - Trying to resolve IP for:", target, "\n"
+                try:
+                    ip = self.resolve_ip(target) # try to resolve an ip from target domain
+                    tld_record = True
+                except:
+                    print "- Not any IP found using TLD:", target
+                    if not options.nolog: # generate log
+                        self.report.write("- IP: Not any IP found using TLD provided: " + target + "\n\n")
+                        if options.json: # generate json
+                            self.json_report.write(json.dumps(['TLD',{target: 'not any IP found'}], separators=(',', ':')))
+                    tld_record = False
+                # dns + scanning
+                if not options.dns: # try to discover DNS records
+                    print "="*14
+                    print "*DNS records*:"
+                    print "="*14
+                    if options.verbose:
+                        print "\n[Verbose] - Trying to resolve DNS records for:", target, "\n"
+                    try:
+                        dns = self.resolve_dns(target)
+                    except:
+                        print "- Not any DNS record found using TLD:", target
+                        if not options.nolog: # generate log
+                            self.report.write("- DNS: Not any DNS record found using TLD provided: " + target + "\n\n")
+                            if options.json: # generate json
+                                self.json_report.write(json.dumps(['DNS',{target: 'not any DNS record found'}], separators=(',', ':')))
+                # rest of scanning tasks (when ip != DNS[A])
+                if not options.scanner and tld_record == True: # try port-scanner on IP
+                    if not options.dns: # using DNS A
+                        for Amachine in self.dns_Amachines:
+                            if str(Amachine) == str(ip):
+                                if not options.scandns: # pass when DNS was scanned                               
                                     pass
+                                else:
+                                    print "[Info] - Trying to discover open ports on:", ip, "\n"
+                                    scanner = self.scan_target(ip)
                             else:
-                                pass 
-                    for s in subdomains:
-                        print "-Subdomain: " + s
-                        fout.write("Subdomain: " + s + "\n")
-                        record_s = record_s + 1
-                    if record_s == 0:
-                        print "- Not any subdomain found"
-                        fout.write("- Not any subdomain found" + "\n")
-                    if options.verbose:
-                        print "\n[Verbose] Trying to resolve one IP for main domain ...\n"
-                    try:
-                        data = socket.gethostbyname_ex(domain.name) # reverse resolve ip
-                        for ip in data[2]:
-                            self.ip = ip
-                            print "-"*22
-                            fout.write("-"*22 + "\n")
-                            print "-IP: " + str(ip)
-                            fout.write("IP: " + str(ip) + "\n\n")
-                            if options.verbose:
-                                print "\n[Verbose] Trying to discover open ports on: " + str(ip) + "\n"
-                            nm = nmap.PortScanner()
-                            nm.scan(ip, '1-65535') # scanning ports (1-65535)
-                            for host in nm.all_hosts():
-                                print('-State : %s' % nm[host].state())
-                            for proto in nm[host].all_protocols():
-                                print('-Protocol : %s' % proto)
-                                fout.write("Protocol: " + proto + "\n")
-                                lport = nm[host][proto].keys()
-                                lport.sort()
-                                for port in lport:
-                                    if str(nm[host][proto][port]['state']) == "open": # only results when open port
-                                        print "  + Port:", port, "(", nm[host][proto][port]['state'], ") - ", nm[host][proto][port]['product'], nm[host][proto][port]['version'], nm[host][proto][port]['name'], nm[host][proto][port]['extrainfo'], nm[host][proto][port]['cpe']
-                                        fout.write("- Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ") - " +  str(nm[host][proto][port]['product']) + str(nm[host][proto][port]['version']) + str(nm[host][proto][port]['name']) + str(nm[host][proto][port]['extrainfo']) + str(nm[host][proto][port]['cpe']) + "\n")
-                    except:
-                        print "\n- Not any server/machine found on that domain\n"
-                        fout.write("- Not any server/machine found on that domain" + "\n")
-                        pass
-                    if options.verbose:
-                        print "\n[Verbose] Trying to resolve DNS records ...\n"
-                    resolver = dns.resolver.Resolver()
-                    resolver.nameservers = ['8.8.8.8', '8.8.4.4'] # google DNS resolvers
-                    try:
-                        answers = resolver.query(target, "A") # A records
-                        for rdata in answers:
-                            print "-"*22
-                            fout.write("-"*22 + "\n")
-                            print "-DNS [A]:", rdata
-                            fout.write("-DNS [A]: " + str(rdata) + "\n\n")
-                            if not (str(rdata) == self.ip): # not repeat scanning
-                                if options.verbose:
-                                    print "\n[Verbose] Trying to discover open ports on: " + str(rdata) + "\n"
-                                nm = nmap.PortScanner()
-                                nm.scan(ip, '1-65535') # scanning ports (1-65535)
-                                for host in nm.all_hosts():
-                                    print('-State : %s' % nm[host].state())
-                                for proto in nm[host].all_protocols():
-                                    print('-Protocol : %s' % proto)
-                                    fout.write("Protocol: " + proto + "\n")
-                                    lport = nm[host][proto].keys()
-                                    lport.sort()
-                                    for port in lport:
-                                        if str(nm[host][proto][port]['state']) == "open": # only results when open port
-                                            print "  + Port:", port, "(", nm[host][proto][port]['state'], ") - ", nm[host][proto][port]['product'], nm[host][proto][port]['version'], nm[host][proto][port]['name'], nm[host][proto][port]['extrainfo'], nm[host][proto][port]['cpe']
-                                            fout.write("- Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ") - " +  str(nm[host][proto][port]['product']) + str(nm[host][proto][port]['version']) + str(nm[host][proto][port]['name']) + str(nm[host][proto][port]['extrainfo']) + str(nm[host][proto][port]['cpe']) + "\n")
-                    except:
-                        pass
-                    try:
-                        answers = resolver.query(target, "NS") # NS records
-                        for rdata in answers:
-                            print "-"*22
-                            fout.write("-"*22 + "\n")
-                            print "-DNS [NS]:", rdata
-                            fout.write("-DNS [NS]: " + str(rdata) + "\n\n")
-                            if options.verbose:
-                                print "\n[Verbose] Trying to discover open ports on: " + str(rdata) + "\n"
-                            nm = nmap.PortScanner()
-                            nm.scan(ip, '1-65535') # scanning ports (1-65535)
-                            for host in nm.all_hosts():
-                                print('-State : %s' % nm[host].state())
-                            for proto in nm[host].all_protocols():
-                                print('-Protocol : %s' % proto)
-                                fout.write("Protocol: " + proto + "\n")
-                                lport = nm[host][proto].keys()
-                                lport.sort()
-                                for port in lport:
-                                    if str(nm[host][proto][port]['state']) == "open": # only results when open port
-                                        print "  + Port:", port, "(", nm[host][proto][port]['state'], ") - ", nm[host][proto][port]['product'], nm[host][proto][port]['version'], nm[host][proto][port]['name'], nm[host][proto][port]['extrainfo'], nm[host][proto][port]['cpe']
-                                        fout.write("- Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ") - " +  str(nm[host][proto][port]['product']) + str(nm[host][proto][port]['version']) + str(nm[host][proto][port]['name']) + str(nm[host][proto][port]['extrainfo']) + str(nm[host][proto][port]['cpe']) + "\n")
-                    except:
-                        pass
-                    try:
-                        answers = resolver.query(target, "MX") # MX records
-                        for rdata in answers:
-                            print "-"*22
-                            fout.write("-"*22 + "\n")
-                            print "-DNS [MX]:", rdata
-                            fout.write("-DNS [MX]: " + str(rdata) + "\n\n")
-                            if options.verbose:
-                                print "\n[Verbose] Trying to discover open ports on: " + str(rdata) + "\n"
-                            nm = nmap.PortScanner()
-                            nm.scan(ip, '1-65535') # scanning ports (1-65535)
-                            for host in nm.all_hosts():
-                                print('-State : %s' % nm[host].state())
-                            for proto in nm[host].all_protocols():
-                                print('-Protocol : %s' % proto)
-                                fout.write("Protocol: " + proto + "\n")
-                                lport = nm[host][proto].keys()
-                                lport.sort()
-                                for port in lport:
-                                    if str(nm[host][proto][port]['state']) == "open": # only results when open port
-                                        print "  + Port:", port, "(", nm[host][proto][port]['state'], ") - ", nm[host][proto][port]['product'], nm[host][proto][port]['version'], nm[host][proto][port]['name'], nm[host][proto][port]['extrainfo'], nm[host][proto][port]['cpe']
-                                        fout.write("- Port:" + str(port) + "(" + str(nm[host][proto][port]['state']) + ") - " +  str(nm[host][proto][port]['product']) + str(nm[host][proto][port]['version']) + str(nm[host][proto][port]['name']) + str(nm[host][proto][port]['extrainfo']) + str(nm[host][proto][port]['cpe']) + "\n")
-                    except:
-                        pass
-                    try:
-                        answers = resolver.query(target, "TXT") # TXT records
-                        for rdata in answers:
-                            print "-"*22
-                            fout.write("-"*22 + "\n")
-                            print "-DNS [TXT]:", rdata
-                            fout.write("-DNS [TXT]: " + str(rdata) + "\n\n")
-                    except:
-                        pass
-                    tld_record = tld_record + 1
-                    print "-"*22
-                    fout.write("-"*22 + "\n")
-            if tld_record == 0:
-                print "- Not any valid record found on TLDs"
-                fout.write("- Not any valid record found on TLDs")
-            fout.close() # close .raw
+                                print "[Info] - Trying to discover open ports on:", ip, "\n"
+                                scanner = self.scan_target(ip)
+                    else: # only IP test
+                        if options.verbose:
+                            print "[Verbose] - Trying to discover open ports on:", ip, "\n"
+                        scanner = self.scan_target(ip)
+                print "" # zen output extensions separator
+                if not options.nolog:
+                    self.report.write("-"*22 + "\n")
 
+            if not options.nolog: # close log (.raw)
+                self.report.close()
+                if options.json: # close json
+                    self.json_report.close()
         # start web-gui
         if options.gui:
             host = '0.0.0.0' # local network
-            port = 6666 # local port
+            port = 9999 # local port
             try: 
-                webbrowser.open('http://127.0.0.1:6666', new=1)
+                webbrowser.open('http://127.0.0.1:9999', new=1)
                 tcpsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	        tcpsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	        tcpsock.bind((host,port))
