@@ -19,7 +19,7 @@ class Updater(object):
     """     
     def __init__(self):
         GIT_REPOSITORY = "https://github.com/epsylon/orb"
-        rootDir = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', ''))
+        rootDir = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '../../', ''))
         if not os.path.exists(os.path.join(rootDir, ".git")):
             print "Not any .git repository found!\n"
             print "="*30
@@ -27,9 +27,8 @@ class Updater(object):
             print "$ git clone %s" % GIT_REPOSITORY
             print ""
         else:
-            checkout = execute("git checkout .", shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
-            if "fast-forwarded" in checkout:
-                pull = execute("git pull %s HEAD" % GIT_REPOSITORY, shell=True, stdout=PIPE, stderr=PIPE).communicate()
-                print "Congratulations!! Orb has been updated to latest version.\n"
+            checkout = execute("git pull", shell=True, stdout=PIPE, stderr=PIPE).communicate()[0]
+            if "Fast-forward" in checkout:
+                print "Congratulations!! Orb has been updated... ;-)\n"
             else:
-                print "You are updated!\n"
+                print "Your Orb doesn't need to be updated... ;-)\n"
