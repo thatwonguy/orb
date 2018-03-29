@@ -259,6 +259,7 @@ Options:
 
   - Orb will search on 'Whois' records for registrant information.
 
+```
        *Output example*:
        -----------------
        -Domain: microsoft.com
@@ -267,6 +268,7 @@ Options:
        -Expiration: 2021-05-03 00:00:00
        -Last update: 2014-10-09 00:00:00
        -----------------
+```
 
 ####  Subdomains
 
@@ -308,6 +310,7 @@ Options:
   - Orb will try to extract interesting information about services running
     on machines discovered (ex: OS, vendor, version, cpe, cve, cvs):
 
+```
        *Output example*:
        -----------------
        - IP: XXX.XXX.XXX.XXX
@@ -320,7 +323,7 @@ Options:
                 CVE Publication rate: 11.13
                 The Reverse Proxy feature in IBM Global Security Kit (aka GSKit) in IBM Security Access Manager (ISAM) for Web 7.0 before 7.0.0-ISS-SAM-IF0006 and 8.0 before 8.0.0.3-ISS-WGA-IF0002 allows remote attackers to cause a denial of service (infinite loop) via crafted SSL messages.
        -----------------
-
+```
 
 ####  Reporting
 
