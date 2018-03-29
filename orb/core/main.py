@@ -1,9 +1,9 @@
 #!/usr/bin/env python 
 # -*- coding: utf-8 -*-"
 """
-This file is part of the orb project, http://orb.03c8.net
+This file is part of the orb project, https://orb.03c8.net
 
-Orb - 2016 - by psy (epsylon@riseup.net)
+Orb - 2016/2017/2018 - by psy (epsylon@riseup.net)
 
 You should have received a copy of the GNU General Public License along
 with RedSquat; if not, write to the Free Software Foundation, Inc., 51
@@ -40,11 +40,11 @@ DEBUG = 0
 class Orb(object):
     def __init__(self):
         self.search_engines = [] # available search engines
-        self.search_engines.append('duck')
-        self.search_engines.append('google')
+        #self.search_engines.append('duck') -> deprecated [27/03/2018]
+        #self.search_engines.append('google') -> deprecated [27/03/2018]
         self.search_engines.append('bing')
         self.search_engines.append('yahoo')
-        self.search_engines.append('yandex')
+        #self.search_engines.append('yandex') -> deprecated [27/03/2018]
         self.engine_fail = False # search engines controller
         self.dns_Amachines = [] # used to check if ip = DNS-A records
         self.socials = None # used to get social links from source file
@@ -60,32 +60,10 @@ class Orb(object):
         self.news_links = {}
         self.ranked_record = 0
         self.agents = [] # user-agents
-        self.agents.append('Mozilla/5.0 (iPhone; U; CPU iOS 2_0 like Mac OS X; en-us)')
-        self.agents.append('Mozilla/5.0 (Linux; U; Android 0.5; en-us)')
-        self.agents.append('Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)')
-        self.agents.append('Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)')
-        self.agents.append('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.13 (KHTML, like Gecko) Chrome/0.2.149.29 Safari/525.13')
-        self.agents.append('Opera/9.25 (Windows NT 6.0; U; en)')
-        self.agents.append('Mozilla/2.02E (Win95; U)')
-        self.agents.append('Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)')
-        self.agents.append('Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)')
-        self.agents.append('Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (FM Scene 4.6.1)')
-        self.agents.append('Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (.NET CLR 3.5.30729) (Prevx 3.0.5)')
-        self.agents.append('(Privoxy/1.0)')
-        self.agents.append('CERN-LineMode/2.15')
-        self.agents.append('cg-eye interactive')
-        self.agents.append('China Local Browser 2.6')
-        self.agents.append('ClariaBot/1.0')
-        self.agents.append('Comos/0.9_(robot@xyleme.com)')
-        self.agents.append('Crawler@alexa.com')
-        self.agents.append('DonutP; Windows98SE')
-        self.agents.append('Dr.Web (R) online scanner: http://online.drweb.com/')
-        self.agents.append('Dragonfly File Reader')
-        self.agents.append('Eurobot/1.0 (http://www.ayell.eu)')
-        self.agents.append('FARK.com link verifier')
-        self.agents.append('FavIconizer')
-        self.agents.append('Feliz - Mixcat Crawler (+http://mixcat.com)')
-        self.agents.append('TwitterBot (http://www.twitter.com)')
+        self.ips_scanner = [] # IPs related with scanner without dns records
+        f = open("core/sources/user-agents.txt").readlines()
+        for line in f:
+            self.agents.append(line)
 
     def set_options(self, options):
         self.options = options
@@ -149,47 +127,47 @@ class Orb(object):
         req_reply = urllib2.urlopen(req).read()
         return req_reply
 
-    def search_using_duck(self, target): # duckduckgo.com
-        url = 'https://duckduckgo.com/html/?'
-        if self.extract_ranked_links == True: # extract ranked links
-            q = 'inurl:"' + str(target) + '"' # ex: inurl:"target"
-        else: # extract subdomains
-            q = 'site:.' + str(target) # ex: site:.target.com 
-        query_string = { 'q':q}
-        data = urllib.urlencode(query_string)
-        url = url + data
-        try:
-            req_reply = self.send_request(url)
-        except:
-            return
-        regex_s = '<a class="result__url" href="(.+?)">' # regex magics (extract urls)
-        pattern_s = re.compile(regex_s)
-        url_links = re.findall(pattern_s, req_reply)
-        return url_links
+    #def search_using_duck(self, target): # duckduckgo.com
+    #    url = 'https://duckduckgo.com/html/?'
+    #    if self.extract_ranked_links == True: # extract ranked links
+    #        q = 'inurl:"' + str(target) + '"' # ex: inurl:"target"
+    #    else: # extract subdomains
+    #        q = 'site:.' + str(target) # ex: site:.target.com 
+    #    query_string = { 'q':q}
+    #    data = urllib.urlencode(query_string)
+    #    url = url + data
+    #    try:
+    #        req_reply = self.send_request(url)
+    #    except:
+    #        return
+    #    regex_s = '<a class="result__url" href="(.+?)">' # regex magics (extract urls)
+    #    pattern_s = re.compile(regex_s)
+    #    url_links = re.findall(pattern_s, req_reply)
+    #    return url_links
 
-    def search_using_google(self, target): # google.com
-        if self.options.engineloc: # set engine location to increase responses
-            url = 'https://www.google.' + self.options.engineloc + '/xhtml?'
-        else:
-            url = 'https://www.google.com/xhtml?'
-        if self.extract_ranked_links == True: # extract ranked links
-            q = 'inurl:"' + str(target) + '"' # ex: inurl:"target"
-        else: # extract subdomains
-            q = 'site:.' + str(target) # ex: site:.target.com 
-        start = 0 # set index number of first entry
-        num = 50 # 5 pages
-        gws_rd = 'ssl' # set SSL as default
-        query_string = { 'q':q, 'start':start, 'num':num, 'gws_rd':gws_rd }
-        data = urllib.urlencode(query_string)
-        url = url + data
-        try:
-            req_reply = self.send_request(url)
-        except:
-            return
-        regex = '<h3 class="r"><a href="/url(.+?)">' # regex magics
-        pattern = re.compile(regex)
-        url_links = re.findall(pattern, req_reply)
-        return url_links
+    #def search_using_google(self, target): # google.com
+    #    if self.options.engineloc: # set engine location to increase responses
+    #        url = 'https://www.google.' + self.options.engineloc + '/xhtml?'
+    #    else:
+    #        url = 'https://www.google.com/xhtml?'
+    #    if self.extract_ranked_links == True: # extract ranked links
+    #        q = 'inurl:"' + str(target) + '"' # ex: inurl:"target"
+    #    else: # extract subdomains
+    #        q = 'site:.' + str(target) # ex: site:.target.com 
+    #    start = 0 # set index number of first entry
+    #    num = 50 # 5 pages
+    #    gws_rd = 'ssl' # set SSL as default
+    #    query_string = { 'q':q, 'start':start, 'num':num, 'gws_rd':gws_rd }
+    #    data = urllib.urlencode(query_string)
+    #    url = url + data
+    #    try:
+    #        req_reply = self.send_request(url)
+    #    except:
+    #        return
+    #    regex = '<h3 class="r"><a href="/url(.+?)">' # regex magics
+    #    pattern = re.compile(regex)
+    #    url_links = re.findall(pattern, req_reply)
+    #    return url_links
 
     def search_using_bing(self, target): # bing.com
         url = 'https://www.bing.com/search?'
@@ -230,40 +208,40 @@ class Orb(object):
             req_reply = self.send_request(url)
         except:
             return
-        regex = '<h3 class="title"><a class=" ac-algo ac-21th lh-15" href="(.+?)">' # regex magics
+        regex = 'RU=(.+?)/RK=' # regex magics [27/03/2018]
         pattern = re.compile(regex)
         url_links = re.findall(pattern, req_reply)
         return url_links
 
-    def search_using_yandex(self, target): # yandex.com
-        url = 'https://yandex.com/search/?'
-        if self.extract_ranked_links == True: # extract ranked links
-            q = str(target)
-        else: # extract subdomains
-            q = 'site:.' + str(target)
-        start = 0 # set index number of first entry
-        # generate random number on range 1-9999999999 with float point 
-        # to provide a fake redircnt (ex: 1458153459.1) / black magic!
-        try:
-            import random
-            num = random.uniform(0, 9999999999)
-        except:
-            num = 1458153459.1
-        query_string = { 'text':q, 'p':start , 'redircnt':num}
-        data = urllib.urlencode(query_string)
-        url = url + data
-        try:
-            req_reply = self.send_request(url)
-        except:
-            return
-        regex = '<a class="link serp-url__link" target="_blank" href="(.+?)"' # regex magics 16/03/2016
-        pattern = re.compile(regex)
-        url_links = re.findall(pattern, req_reply)
-        return url_links
+    #def search_using_yandex(self, target): # yandex.com
+    #    url = 'https://yandex.com/search/?'
+    #    if self.extract_ranked_links == True: # extract ranked links
+    #        q = str(target)
+    #    else: # extract subdomains
+    #        q = 'site:.' + str(target)
+    #    start = 0 # set index number of first entry
+    #    # generate random number on range 1-9999999999 with float point 
+    #    # to provide a fake redircnt (ex: 1458153459.1) / black magic!
+    #    try:
+    #        import random
+    #        num = random.uniform(0, 9999999999)
+    #    except:
+    #        num = 1458153459.1
+    #    query_string = { 'text':q, 'p':start , 'redircnt':num}
+    #    data = urllib.urlencode(query_string)
+    #    url = url + data
+    #    try:
+    #        req_reply = self.send_request(url)
+    #    except:
+    #        return
+    #    regex = '<a class="link serp-url__link" target="_blank" href="(.+?)"' # regex magics 16/03/2016
+    #    pattern = re.compile(regex)
+    #    url_links = re.findall(pattern, req_reply)
+    #    return url_links
 
     def search_using_torch(self, target): # http://xmh57jrzrnw6insl.onion
         try:
-            url = 'http://xmh57jrzrnw6insl.onion/5dc02cc7lc/search.cgi?'
+            url = 'http://xmh57jrzrnw6insl.onion/4a1f6b371c/search.cgi?' # [28/03/2018] https://onion+hash+search.cgi
             q = str(target)
             start = 0
             query_string = { 'q':q, 'cmd':'Search!' }
@@ -274,37 +252,39 @@ class Orb(object):
             except:
                 print "- Not found!"
                 if not self.options.nolog: # generate log
-                    self.report.write("\n- Deep Web: Not found!\n")
+                    self.report.write("\n- Deep Web: Not found!\n\n")
                 return
             if "No documents were found" in req_reply: # no records found
-                print "- No documents were found!"
+                print "[Info] - No documents were found!"
                 if not self.options.nolog: # generate log
-                    self.report.write("\n- Deep Web: No documents were found!\n")
+                    self.report.write("- Deep Web: Not found!\n\n")
             else:
                 regex = '<A HREF="(.+?)" TARGET' # regex magics - 26/03/2016
                 pattern = re.compile(regex)
                 url_links = re.findall(pattern, req_reply)
+                for url in url_links:
+                    print "- Onion URL ->", url
+                    if not self.options.nolog: # generate log
+                        self.report.write("- Onion URL -> " + url + "\n")
+                        if self.options.json: # write reply to json
+                            self.json_report.write(json.dumps(['Deep Web',{'Onion': url}], separators=(',', ':')))
                 if not self.options.nolog: # generate log
                     self.report.write("\n") # zen
-                for url in url_links:
-                    print "- onion ->", url
-                    if not self.options.nolog: # generate log
-                        self.report.write("- onion -> " + url + "\n")
-                        if self.options.json: # write reply to json
-                            self.json_report.write(json.dumps(['Deep Web',{'onion': url}], separators=(',', ':')))
         except: # return when fails
-            print "- Deep Web: Not found!"
+            print "- Not found!"
             if not self.options.nolog: # generate log
-                self.report.write("\n- Deep Web: Not found!\n")
+                self.report.write("\n- Deep Web: Not found!\n\n")
             return
 
     def extract_financial(self, target): # extract financial records
         try: # search on yahoo financial
-            url = 'https://finance.yahoo.com/q?'
+            url = 'https://finance.yahoo.com/lookup?' # [29/03/2018]
             s = str(self.options.target).upper() # uppercase required
             query_string = {'s':s}
             data = urllib.urlencode(query_string)
             url = url + data
+            if self.options.verbose:
+                print "\n[Verbose] - Financial query used:", url + "\n"
             try:
                 req_reply = self.send_request(url)
             except:
@@ -313,42 +293,30 @@ class Orb(object):
                     self.report.write("\n- Financial: Not found!\n")
                 self.extract_financial_record = False
                 return
-            regex = '<div class="hd"><div class="title"><h2>(.+?)</h2>' # regex magics (company)
+            regex = '{"exchange":(.+?)"}' # regex magics [28/03/2018]
             pattern = re.compile(regex)
-            names = re.findall(pattern, req_reply)
-            for name in names:
-                print "- Company:", name
+            records = re.findall(pattern, req_reply)
+            for record in records:
+                regex2 = '"symbol":"(.+?)","industryLink' # regex magics [28/03/2018]
+                pattern2 = re.compile(regex2)
+                symbol = re.findall(pattern2, record)
+                regex3 = '"companyName":"(.+?)","industryName"' # regex magics [28/03/2018]
+                pattern3 = re.compile(regex3)
+                name = re.findall(pattern3, record)
+                sep = '"lastValue":"' # regex magics [28/03/2018]
+                prize = record.split(sep, 1)[1]
+                if 'industryName' in str(name): # parse empty name
+                    name = "['']"
+                print "- SYMBOL:", symbol, "-> Name:", name, "-> Last prize:", prize
                 if not self.options.nolog: # generate log
-                    self.report.write("\nCompany: " + name + "\n")
+                    self.report.write("- SYMBOL: " + str(symbol) + " -> Name: " + str(name) + " -> Last prize: " + str(prize) + "\n")
                     if self.options.json: # write reply to json
-                        self.json_report.write(json.dumps(['Financial',{'Company': name}], separators=(',', ':')))
-            regex2 = '<span class="rtq_dash">-</span>(.+?)</span>' # regex magics (market)
-            pattern2 = re.compile(regex2)
-            stocks = re.findall(pattern2, req_reply)
-            for stock in stocks:
-                print "- Stock:", stock
-                if not self.options.nolog: # generate log
-                    self.report.write("Stock: " + stock + "\n")
-                    if self.options.json: # write reply to json
-                        self.json_report.write(json.dumps(['Financial',{'Stock': stock}], separators=(',', ':')))
-            regex3 = 'Market Cap:</th><td class="yfnc_tabledata1"><span id="yfs_(.+?)</span></td></tr><tr><th scope="row" width="48%">' # regex magics (market cap)
-            pattern3 = re.compile(regex3)
-            prizes = re.findall(pattern3, req_reply)
-            sep = '">'
-            if not prizes: # market cap is not available for some companies
-                prize = "not found!"
-                print "- Market Cap:", prize
-            else:
-                for prize in prizes:
-                    prize = prize.split(sep, 1)[1]
-                    print "- Market Cap:", prize, "$USD"
-            if not self.options.nolog: # generate log
-                self.report.write("Market Cap: " + prize + "\n")
-                if self.options.json: # write reply to json
-                    self.json_report.write(json.dumps(['Financial',{'Market Cap': prize}], separators=(',', ':')))
+                        self.json_report.write(json.dumps(['Financial',{'SYMBOL': symbol,'Name': name,'Last prize': prize}], separators=(',', ':')))
             self.extract_financial_record = False
+            if not self.options.nolog: # generate log
+                self.report.write("\n") # raw format task
         except: # return when fails
-            print "- Financial: Not found!"
+            print "[Info] - Financial: Not found!\n"
             if not self.options.nolog: # generate log
                 self.report.write("\n- Financial: Not found!\n")
             self.extract_financial_record = False
@@ -388,35 +356,40 @@ class Orb(object):
             d_cleanner = re.compile('<.*?>') # clean descriptions
             d_clean = re.sub(d_cleanner,'', d)
             wikipedia = re.sub(r'\[.*?\]\ *', '', d_clean)
-            return wikipedia
+        if "may refer to" in wikipedia:
+            wikipedia = "There are multiple records for this entry -> " + str(url)
+        return wikipedia
 
     def extract_from_engine(self, engine, target): # search using engine
-        if engine == "duck": # using duck
-            url_links = self.search_using_duck(target)
-        if engine == "google": # using google
-            url_links = self.search_using_google(target)
+        #if engine == "duck": # using duck
+        #    url_links = self.search_using_duck(target)
+        #if engine == "google": # using google
+        #    url_links = self.search_using_google(target)
         if engine == "bing": # using bing
             url_links = self.search_using_bing(target)
         if engine == "yahoo": #using yahoo
             url_links = self.search_using_yahoo(target)
-        if engine == "yandex": #using yandex
-            url_links = self.search_using_yandex(target)
+        #if engine == "yandex": #using yandex
+        #    url_links = self.search_using_yandex(target)
         if not url_links: # not records found
             self.engine_fail = True
         else:     
             for url in url_links:
-                if engine == "bing" or engine == "yahoo" or engine == "yandex": # post-parse regex magics
+                if engine == "yahoo" or engine == "bing": # post-parse regex magics
                     sep = '"'
                     url = url.split(sep, 1)[0]
-                if engine == "google":
-                    url = url.replace("?q=", "")
-                    sep = '&amp;sa='
-                    url = url.split(sep, 1)[0]
+                    url = urllib.unquote(url)
+                #if engine == "google":
+                #    url = url.replace("?q=", "")
+                #    sep = '&amp;sa='
+                #    url = url.split(sep, 1)[0]
                 if self.extract_ranked_links == True: # ranked links
-                    self.url_links.append(url)
+                    if target in url: # only add urls related with target
+                        self.url_links.append(url)
                     if self.ranked_record == 0:
-                        self.top_ranked[engine] = url # add s/url to dict
-                        self.ranked_record = self.ranked_record + 1
+                        if target in url: # only add urls related with target
+                            self.top_ranked[engine] = url # add s/url to dict
+                            self.ranked_record = self.ranked_record + 1
                 else: # subdomains
                     self.sub_links.append(url)
             self.engine_fail = False
@@ -424,7 +397,7 @@ class Orb(object):
     def extract_ranked(self, target, engine): # extract ranked link
         if self.options.public: # safe/return when no extract public records option
             return
-        self.extract_ranked_links = True # used to perform different query to search engines
+        self.extract_ranked_links = True # used to perform different queries to search engines
         self.ranked_record = 0 # extract ranked link
         self.extract_from_engine(engine, target)
         self.extract_ranked_links = False # list semaphore to off
@@ -442,10 +415,11 @@ class Orb(object):
             for key,val in self.top_ranked.items():
                 print("- {} -> {}".format(key, val))
                 if not self.options.nolog: # generate log
-                    self.report.write("- Top ranked: " + key + " -> " + val + "\n\n")
+                    self.report.write("- Top ranked: " + key + " -> " + val + "\n")
                     if self.options.json: # write reply to json
                         self.json_report.write(json.dumps(['Ranked',{'Engine': key, 'Top': val}], separators=(',', ':')))
-
+            if not self.options.nolog: # generate log
+                self.report.write("\n") # raw format task
         if self.extract_wikipedia_record == True: # not need to repeat wikipedia descriptions on each extension
             print "="*14
             print "*Wikipedia*:"
@@ -453,15 +427,19 @@ class Orb(object):
             if not self.wikipedia_texts:
                 print "- Not found!"
                 if not self.options.nolog: # generate log
-                    self.report.write("\n- Wikipedia: Not found!\n")
+                    self.report.write("- Wikipedia: Not found!\n\n")
             else:
                 for wikipedia in self.wikipedia_texts:
                     if wikipedia is not None:
                         print "-", wikipedia
                         if not self.options.nolog: # generate log
-                            self.report.write("- "+ wikipedia + "\n\n")
+                            self.report.write("- " + wikipedia + "\n")
                             if self.options.json: # write reply to json (non parsed ascii)
                                 self.json_report.write(json.dumps(['Wikipedia',{'Description': wikipedia}], separators=(',', ':'), ensure_ascii=False))
+                if wikipedia is None:
+                    print "- Not found!"
+                if not self.options.nolog: # generate log
+                    self.report.write("\n") # raw format task
         if not self.options.social:
             print "="*14
             print "*Social*:"
@@ -469,7 +447,7 @@ class Orb(object):
             if not self.social_links:
                 print "- Not found!"
                 if not self.options.nolog: # generate log
-                    self.report.write("\n- Social: Not found!\n")
+                    self.report.write("- Social: Not found!\n\n")
             else:
                 for key,val in self.social_links.items():
                     print("- {} -> {}".format(key, val))
@@ -477,6 +455,8 @@ class Orb(object):
                         self.report.write("- " + key + " -> " + val + "\n")
                         if self.options.json: # write reply to json
                             self.json_report.write(json.dumps(['Social',{key:val}], separators=(',', ':')))
+                if not self.options.nolog: # generate log
+                    self.report.write("\n") # raw format task
         if not self.options.news:
             print "="*14
             print "*News*:"
@@ -484,7 +464,7 @@ class Orb(object):
             if not self.news_links:
                 print "- Not found!"
                 if not self.options.nolog: # generate log
-                    self.report.write("\n- News: Not found!\n")
+                    self.report.write("- News: Not found!\n\n")
             else:
                 for key,val in self.news_links.items():
                     print("- {} -> {}".format(key, val))
@@ -492,6 +472,8 @@ class Orb(object):
                         self.report.write("- " + key + " -> " + val + "\n")
                         if self.options.json: # write reply to json
                             self.json_report.write(json.dumps(['News',{key:val}], separators=(',', ':')))
+                if not self.options.nolog: # generate log
+                    self.report.write("\n") # raw format task
 
     def extract_public(self, target): # extract general public records
         if self.options.public: # safe/return when no extract public records option
@@ -504,10 +486,10 @@ class Orb(object):
                 if self.options.engine in self.search_engines:
                     engine = str(self.options.engine)
                 else:
-                    engine = "duck"
+                    engine = "yahoo"
                     print "\n- You are setting a non supported search engine. Using default: " + engine + "\n"
             else:
-                engine = "duck" # used by default
+                engine = "yahoo" # used by default
             self.extract_ranked(target, engine)
         if self.engine_fail == True: # pass other tests when no urls
             if not self.options.allengines:
@@ -516,15 +498,22 @@ class Orb(object):
                 self.report.write("\n***[Info] - [" + target + "] -> Not any link found using: " + engine + "\n\n")
         else:
             for url in self.url_links: # search on results retrieved by all engines used
-                if self.extract_wikipedia_record == True: # extract mode
-                    if "wikipedia.org" in url: # wikipedia record!
-                        wikipedia = self.extract_wikipedia(url) # extract data from wikipedia
-                        if wikipedia not in self.wikipedia_texts: # not repeat entries
-                            self.wikipedia_texts.append(wikipedia)
+                #if self.extract_wikipedia_record == True: # extract mode
+                #    if "wikipedia.org" in url: # wikipedia record!
+                #        wikipedia = self.extract_wikipedia(url) # extract data from wikipedia
+                #        if wikipedia not in self.wikipedia_texts: # not repeat entries
+                #            self.wikipedia_texts.append(wikipedia)
                 if not self.options.social:
                     self.extract_social(url)
                 if not self.options.news:
                     self.extract_news(url)
+            if self.extract_wikipedia_record == True: # visit directly to wikipedia when is not located any record by search engines
+                url_wiki = "https://en.wikipedia.org/wiki/" + str(target).title() # wikipedia default path to extract records
+                if self.options.verbose:
+                    print "\n[Verbose] - Wikipedia query used:", url_wiki + "\n"
+                wikipedia = self.extract_wikipedia(url_wiki) # extract data from wikipedia
+                if wikipedia not in self.wikipedia_texts: # not repeat entries
+                    self.wikipedia_texts.append(wikipedia)
         self.public_records_output() # output parsed public records
         if not self.options.deep: # search for deep web records
             print "="*14
@@ -539,7 +528,6 @@ class Orb(object):
                 self.extract_financial(target)
                 self.extract_financial_record = False
 
-
     def extract_whois(self, target): # extract whois data from target domain
         print "="*14
         print "*Whois*:"
@@ -547,10 +535,9 @@ class Orb(object):
         try:
             domain = whois.query(target, ignore_returncode=True) # ignore return code
             if domain.creation_date is None: # return when no creation date
-                if self.options.verbose:
-                    print "- Not found!\n"
-                    if not self.options.nolog: # generate log
-                        self.report.write("- Whois: Not found!\n\n")
+                print "- Not found!\n"
+                if not self.options.nolog: # generate log
+                    self.report.write("- Whois: Not found!\n\n")
                 return
         except: # return when fails performing query
             print "- Not found!"
@@ -586,9 +573,10 @@ class Orb(object):
             if self.options.verbose:
                 print('\n[Error] - Cannot extract CVS records...\n')
             return
-        regex_cvs = '<p>(.+?)</p>\r' # regex magics
+        regex_cvs = '<p data-testid="vuln-description">(.+?)</p>\r' # regex magics [28/03/2018]
         pattern_cvs = re.compile(regex_cvs)
         cvs = re.findall(pattern_cvs, req_reply)
+        print "" # zen output
         for cvs_desc in cvs: 
             cvs_desc = cvs_desc.replace('This is a potential security issue, you are being redirected to <a href="http://nvd.nist.gov">http://nvd.nist.gov</a','')
             cvs_desc = cvs_desc.replace("<strong>", "")
@@ -609,7 +597,7 @@ class Orb(object):
         data = urllib.urlencode(query_string)
         url = url + data
         if self.options.verbose:
-            print "\n[Verbose] - CVE database query used:", url + "\n"
+            print "\n[Verbose] - CVE database query used:", url
         try:
             req_reply = self.send_request(url)
         except:
@@ -627,7 +615,7 @@ class Orb(object):
             cve_info = cve.replace("/cgi-bin/cvename.cgi?name=","")
             print "\n        +", cve_info, "->", "https://cve.mitre.org" + cve # 8 tab for zen
             if not self.options.nolog: # write reply to log
-                self.report.write("\n        +" + cve_info + "->" + "https://cve.mitre.org" + cve + "\n")
+                self.report.write("\n        + " + cve_info + "->" + "https://cve.mitre.org" + cve + "\n")
                 if self.options.json: # write reply to json
                     self.json_report.write(json.dumps(['CVE',{'ID': str(cve_info), 'Link': "https://cve.mitre.org" + str(cve)}], separators=(',', ':')))
             if not self.options.cvs: # extract description from vulnerability (CVS)
@@ -660,10 +648,12 @@ class Orb(object):
             for s in subdomains:
                 print "- " + s
                 if not self.options.nolog: # write reply to log
-                    self.report.write("Subdomain: " + s + "\n")
+                    self.report.write("- Subdomain: " + s + "\n")
                     if self.options.json: # write reply to json
                         self.json_report.write(json.dumps(['Subdomains',{'Subdomain': str(s)}], separators=(',', ':')))
                 record_s = record_s + 1
+            if not self.options.nolog: # generate log
+                self.report.write("\n") # zen
             if record_s == 0:
                 print "- Not any subdomain found!"
                 if not self.options.nolog: # write reply to log
@@ -673,11 +663,14 @@ class Orb(object):
         data = socket.gethostbyname_ex(target) # reverse resolve target
         for ip in data[2]:
             self.ip = ip
+            self.ips_scanner.append(ip) # add to list of scanner found IPs without DNS
             print "- " + str(ip)
             if not self.options.nolog: # write reply to log
-                self.report.write("\nIP: " + str(ip) + "\n\n")
+                self.report.write("- IP: " + str(ip) + "\n")
                 if self.options.json: # write reply to json
                     self.json_report.write(json.dumps(['Server',{'IP': str(ip)}], separators=(',', ':')))
+        if not self.options.nolog: # generate log
+            self.report.write("\n") # zen
         return ip
 
     def scan_target(self, target): # try to discover Open Ports
@@ -739,6 +732,7 @@ class Orb(object):
                             if not self.options.cve: # extract vulnerabilities from CVE (Common Vulnerabilities and Exposures)
                                 product = str(nm[host][proto][port]['product'])
                                 cve = self.extract_cve(product)
+                                print "" # zen output
                     else: # not extract banners
                         if str(nm[host][proto][port]['state']) == "open": # only results when open port
                             print "      + Port:", port, "(", nm[host][proto][port]['state'], ")"
@@ -783,7 +777,6 @@ class Orb(object):
                 if not self.options.scanner: # try port-scanner on DNS-A records
                     if not self.options.scandns:
                         scanner = self.scan_target(rdata)
-                print "" # zen output
             print "-"*12
             if not self.options.nolog: # write reply to log
                 self.report.write("-"*12 + "\n")
@@ -806,7 +799,6 @@ class Orb(object):
                     if not self.options.scandns:
                         if not self.options.scanns: # try port-scanner on DNS-NS records
                             scanner = self.scan_target(rdata)
-                print "" # zen output
             print "-"*12
             if not self.options.nolog: # write reply to log
                 self.report.write("-"*12 + "\n")
@@ -830,7 +822,6 @@ class Orb(object):
                     if not self.options.scandns:
                         if not self.options.scanmx:
                             scanner = self.scan_target(rdata)
-                print "" # zen output
             print "-"*12
             if not self.options.nolog: # write reply to log
                 self.report.write("-"*12 + "\n")
@@ -909,7 +900,7 @@ class Orb(object):
             # public records / deepweb, financial, social, news ...
             if not options.public: # search for public records
                 print "="*60
-                print "Retrieving general data ..."
+                print "[Info] - Retrieving general data ..."
                 print "="*60
                 if not options.social: # retrieve social urls
                     if not options.socialf: # try default list
@@ -948,7 +939,7 @@ class Orb(object):
                     self.report.write("-"*22 + "\n")
             # domains / extract extensions from source provided (comma separated)
             print "="*60
-            print "Retrieving data by TLDs ..."
+            print "[Info] - Retrieving data by TLDs ..."
             print "="*60
             tld_record = False # tld records
             self.extract_wikipedia_record = False
@@ -985,7 +976,7 @@ class Orb(object):
             for e in extensions: # extract domain info and perform different tasks
                 target = str(options.target + e)
                 print "="*40
-                print "Trying TLD:", target
+                print "[Info] - Trying TLD:", target
                 print "="*40
                 # public records (by extension)
                 if not options.public: # search for public records
@@ -998,7 +989,7 @@ class Orb(object):
                 # whois
                 if not options.whois: # try to extract whois data
                     if options.verbose:
-                        print "[Verbose] - Trying whois to: " + target + "\n"
+                        print "\n[Verbose] - Trying whois to: " + target + "\n"
                     whois = self.extract_whois(target)
                 # subdomains
                 if not options.subs: # try to discover subdomains on target domain
@@ -1023,7 +1014,7 @@ class Orb(object):
                     ip = self.resolve_ip(target) # try to resolve an ip from target domain
                     tld_record = True
                 except:
-                    print "- Not any IP found using TLD:", target
+                    print "Not any IP found using TLD:", target
                     if not options.nolog: # generate log
                         self.report.write("- IP: Not any IP found using TLD provided: " + target + "\n\n")
                         if options.json: # generate json
@@ -1058,13 +1049,13 @@ class Orb(object):
                                 print "[Info] - Trying to discover open ports on:", ip, "\n"
                                 scanner = self.scan_target(ip)
                     else: # only IP test
-                        if options.verbose:
-                            print "[Verbose] - Trying to discover open ports on:", ip, "\n"
-                        scanner = self.scan_target(ip)
+                        for ip in self.ips_scanner: # scan all ips found without DNS
+                            if options.verbose:
+                                print "\n[Verbose] - Trying to discover open ports on:", ip, "\n"
+                            scanner = self.scan_target(ip)
                 print "" # zen output extensions separator
                 if not options.nolog:
                     self.report.write("-"*22 + "\n")
-
             if not options.nolog: # close log (.raw)
                 self.report.close()
                 if options.json: # close json

@@ -1,9 +1,9 @@
 #!/usr/bin/env python 
 # -*- coding: utf-8 -*-"
 """
-This file is part of the orb project, http://orb.03c8.net
+This file is part of the orb project, https://orb.03c8.net
 
-Orb - 2016 - by psy (epsylon@riseup.net)
+Orb - 2016/2017/2018 - by psy (epsylon@riseup.net))
 
 You should have received a copy of the GNU General Public License along
 with RedSquat; if not, write to the Free Software Foundation, Inc., 51
@@ -31,7 +31,7 @@ class OrbOptions(optparse.OptionParser):
 
         group1 = optparse.OptionGroup(self, "*Search Engines*",
         "These options can be used to specify which search engines use to extract information:")
-        group1.add_option("--se", action="store", dest="engine", help="set search engine (default: duck)")
+        group1.add_option("--se", action="store", dest="engine", help="set search engine (default: Yahoo)")
         group1.add_option("--se-ext", action="store", dest="engineloc", help="set location for search engine (ex: 'fr')")
         group1.add_option("--sa", action="store_true", dest="allengines", help="search massively using all search engines")
         self.add_option_group(group1)

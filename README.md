@@ -1,6 +1,6 @@
 =================================================================== 
 
-![orb](http://orb.03c8.net/orb/orb.png)
+![orb](https://orb.03c8.net/orb/orb.png)
 
 ----------
 
@@ -99,7 +99,7 @@ Options:
     These options can be used to specify which search engines use to
     extract information:
 
-    --se=ENGINE         set search engine (default: duck)
+    --se=ENGINE         set search engine (default: Yahoo)
     --se-ext=ENGINELOC  set location for search engine (ex: 'fr')
     --sa                search massively using all search engines
 
@@ -200,24 +200,21 @@ Options:
 
   - You can set different search engines to gather public records from the Internet.
 
-    For this release (by default: duck):
+    For this release (by default: Yahoo):
 
      + Supported:
-       - Duck (duckduckgo.com)
-       - Google (google.com)
-       - Yahoo (yahoo.com)
-       - Bing (bing.com)
-       - Yandex (yandex.ru)
-       - Torch! (deep web)
+       - Yahoo (yahoo.com) [28/03/2018]
+       - Bing (bing.com) [28/03/2018]
+       - Torch! (deep web) [28/03/2018]
 
        *Ex: ./orb --spell='target' --se='yahoo'
 
   - Also you can set the location for search engine to retrieve more accurate information
     about your target.
 
-    For example, if is located in Spain you can try to use 'Google.es' servers:
+    For example, if is located in Spain you can try to use 'yahoo.es' servers:
 
-       *Ex: ./orb --spell='target' --se='google' --se-ext='es' (france=fr, italy=it, etc...)
+       *Ex: ./orb --spell='target' --se='yahoo' --se-ext='es' (france=fr, italy=it, etc...)
 
   - You can search massively using all search engines with:
 
