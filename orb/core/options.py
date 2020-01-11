@@ -1,12 +1,12 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-"
 """
 This file is part of the orb project, https://orb.03c8.net
 
-Orb - 2016/2017/2018 - by psy (epsylon@riseup.net))
+Orb - 2016/2020 - by psy (epsylon@riseup.net)
 
 You should have received a copy of the GNU General Public License along
-with RedSquat; if not, write to the Free Software Foundation, Inc., 51
+with Orb; if not, write to the Free Software Foundation, Inc., 51
 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import optparse
@@ -14,9 +14,9 @@ import optparse
 class OrbOptions(optparse.OptionParser):
     def __init__(self, *args):
         optparse.OptionParser.__init__(self, 
-                           description='\nOrb: footprinting tool - by psy',
+                           description='\nOrb: massive footprinting tool - by psy (https://03c8.net)',
                            prog='Orb.py',
-                           version='\nVersion: v0.2 - "Green Orb"\n')
+                           version='\nVersion: v0.3 (2020) - "Red Orb! - https://orb.03c8.net"\n')
         self.add_option("-v", "--verbose", action="store_true", dest="verbose", help="active verbose on requests")
         self.add_option("--check-tor", action="store_true", dest="checktor", help="check to see if Tor is used properly")
         self.add_option("--update", action="store_true", dest="update", help="check for latest stable version")
@@ -31,7 +31,7 @@ class OrbOptions(optparse.OptionParser):
 
         group1 = optparse.OptionGroup(self, "*Search Engines*",
         "These options can be used to specify which search engines use to extract information:")
-        group1.add_option("--se", action="store", dest="engine", help="set search engine (default: Yahoo)")
+        group1.add_option("--se", action="store", dest="engine", help="set search engine (default: DuckDuckGo)")
         group1.add_option("--se-ext", action="store", dest="engineloc", help="set location for search engine (ex: 'fr')")
         group1.add_option("--sa", action="store_true", dest="allengines", help="search massively using all search engines")
         self.add_option_group(group1)
@@ -40,7 +40,6 @@ class OrbOptions(optparse.OptionParser):
         "Orb will search for interesting public records. You can choose multiple:")
         group2.add_option("--no-public", action="store_true", dest="public", help="disable search for public records")
         group2.add_option("--no-deep", action="store_true", dest="deep", help="disable deep web records") 
-        group2.add_option("--no-financial", action="store_true", dest="financial", help="disable financial records")
         group2.add_option("--no-social", action="store_true", dest="social", help="disable social records")
         group2.add_option("--social-f", action="store", dest="socialf", help="set a list of social sources from file")
         group2.add_option("--no-news", action="store_true", dest="news", help="disable news records")
@@ -96,13 +95,13 @@ class OrbOptions(optparse.OptionParser):
     def get_options(self, user_args=None):
         (options, args) = self.parse_args(user_args)
         if (not options.checktor and not options.target and not options.gui and not options.update):
-            print '='*75, "\n"
-            print "  _|_|              _|        "
-            print "_|    _|  _|  _|_|  _|_|_|    "
-            print "_|    _|  _|_|      _|    _|  "
-            print "_|    _|  _|        _|    _|  "
-            print "  _|_|    _|        _|_|_|    "
-            print self.description, "\n"
-            print '='*75, "\n"
+            print("\n"+'='*75, "\n")
+            print("  _|_|              _|        ")
+            print("_|    _|  _|  _|_|  _|_|_|    ")
+            print("_|    _|  _|_|      _|    _|  ")
+            print("_|    _|  _|        _|    _|  ")
+            print("  _|_|    _|        _|_|_|    ")
+            print(self.description, "\n")
+            print('='*75, "\n")
             return False
         return options

@@ -1,17 +1,21 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-"
 """
 This file is part of the orb project, https://orb.03c8.net
 
-Orb - 2016/2017/2018 - by psy (epsylon@riseup.net)
+Orb - 2016/2020 - by psy (epsylon@riseup.net)
 
 You should have received a copy of the GNU General Public License along
-with RedSquat; if not, write to the Free Software Foundation, Inc., 51
+with Orb; if not, write to the Free Software Foundation, Inc., 51
 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 """
 import socket, threading, re, base64, os, datetime
-import webbrowser, subprocess, urllib, json, sys
-from options import OrbOptions
+import webbrowser, subprocess, json, sys
+try:
+    from urlparse import urlparse
+except:
+    import urllib.parse as urlparse
+from .options import OrbOptions
 from pprint import pprint
 
 host = "0.0.0.0"
@@ -31,7 +35,10 @@ class ClientThread(threading.Thread):
         out = "HTTP/1.0 %s\r\n" % res["code"]
         out += "Content-Type: %s\r\n\r\n" % res["ctype"]
         out += "%s" % res["html"]
-        self.socket.send(out)
+        try:
+            self.socket.send(out.encode('utf-8'))
+        except:
+            self.socket.send(out)
         self.socket.close()
         if "run" in res and len(res["run"]):
             subprocess.Popen(res["run"], shell=True)
@@ -45,7 +52,7 @@ class Pages():
         self.pages["/header"] = """
 <!DOCTYPE html><html>
 <head>
-<link rel="icon" type="image/png" href="/favicon.ico" />
+<link rel="icon" type="image/ico" href="data:image/ico;base64,AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQIDA6sBX9r/AWrk/wFn4f8BXdb/AzR/5AAAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYgKY/f8BRbL/ASBR/wEKFP8BCRH/ARtD/wE9pP8DnP3/AQAAjwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZgFz6/8BM4z/AR1F/wEPH/8BBgv/AQMF/wELGf8BGTv/ATCA/wFm4v8EHkG7AAAAAAAAAAAAAAAAAAAABwF98f8BMYH/ARtD/wIMGv8DBQj/AwYK/wQHC/8DBgn/AgoU/wEYOf8BMH3/AWXh/wAAACUAAAAAAAAAAAFRx/4BMoX/ARxF/wINGv8DBgv/CRAY/w8ZKf8QGyv/ChMd/wQJD/8CCxX/ARpA/wEvfP8BUcb/AAAAAAAAAAABUMj/AR9L/wESJf8DCA//CRAY/xkwTf8uWpT/MWCd/x86X/8MFSH/BAkP/wERJP8BHUb/AT+k/wAAAAEAAAABASVe/wEVMv8BChb/BAgO/xIgMv81aKf/ZLzt/2vE8/9BgsL/FyxG/wYMEv8CCxX/ARUx/wEfTP8AAAAWAAAAAgEWNP8BDx3/AgkQ/wUJDv8VJz3/QYLC/33U+v+G2/3/UJ7Z/x02V/8IDRX/AggQ/wEPIP8BFCv/AAEBHQAAAAABDBr/AQwZ/wEHDf8EBwv/EB0s/y5Zk/9VqOH/XLHn/zhvr/8VJj3/BgsR/wIGDP8BChP/ARQw/wAAAAQAAAAAAQwY/wESJf8BBAj/AwQH/wcNE/8UJDn/I0Nt/yVHdf8XLEb/ChEZ/wMGCf8BBQj/AQsY/wEHDP8AAAAAAAAAAAISI4EBQq3/AQUI/wEDA/8CAwX/BQoP/woRGf8KEhv/BgwR/wMEB/8CAwT/AQME/wEwgv8BCxX/AAAAAAAAAAAAAAAAAUrA/wEqbf8BAQL/AAEB/wECA/8CAwT/AgME/wIDA/8AAQH/AAAA/wEdSf8EgfL/AAAAAAAAAAAAAAAAAAAAAAAAAABA4/3/AUzA/wEHDf8AAAD/AAAA/wAAAP8AAAD/AQQH/wE6n/9c6v3/AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADiz8f97/f//AZL8/wFRyP8BTsP/AYX1/172//9dzfn/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGrK/Gml5///s+r//2/R+9MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+B8AAPAHAADgAwAAwAMAAIABAACAAQAAgAEAAIABAACAAQAAgAEAAIABAADAAwAA4AcAAPAPAAD+PwAA//8AAA==" />
 <meta name="author" content="psy">
 <meta name="robots" content="noindex, nofollow">
 <meta http-equiv="content-type" content="text/xml; charset=utf-8" /> 
@@ -56,8 +63,6 @@ class Pages():
         self.pages["/footer"] = """</body>
 </html>
 """
-        self.pages["/favicon.ico"] = base64.b64decode("AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAIAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABQIDA6sBX9r/AWrk/wFn4f8BXdb/AzR/5AAAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYgKY/f8BRbL/ASBR/wEKFP8BCRH/ARtD/wE9pP8DnP3/AQAAjwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZgFz6/8BM4z/AR1F/wEPH/8BBgv/AQMF/wELGf8BGTv/ATCA/wFm4v8EHkG7AAAAAAAAAAAAAAAAAAAABwF98f8BMYH/ARtD/wIMGv8DBQj/AwYK/wQHC/8DBgn/AgoU/wEYOf8BMH3/AWXh/wAAACUAAAAAAAAAAAFRx/4BMoX/ARxF/wINGv8DBgv/CRAY/w8ZKf8QGyv/ChMd/wQJD/8CCxX/ARpA/wEvfP8BUcb/AAAAAAAAAAABUMj/AR9L/wESJf8DCA//CRAY/xkwTf8uWpT/MWCd/x86X/8MFSH/BAkP/wERJP8BHUb/AT+k/wAAAAEAAAABASVe/wEVMv8BChb/BAgO/xIgMv81aKf/ZLzt/2vE8/9BgsL/FyxG/wYMEv8CCxX/ARUx/wEfTP8AAAAWAAAAAgEWNP8BDx3/AgkQ/wUJDv8VJz3/QYLC/33U+v+G2/3/UJ7Z/x02V/8IDRX/AggQ/wEPIP8BFCv/AAEBHQAAAAABDBr/AQwZ/wEHDf8EBwv/EB0s/y5Zk/9VqOH/XLHn/zhvr/8VJj3/BgsR/wIGDP8BChP/ARQw/wAAAAQAAAAAAQwY/wESJf8BBAj/AwQH/wcNE/8UJDn/I0Nt/yVHdf8XLEb/ChEZ/wMGCf8BBQj/AQsY/wEHDP8AAAAAAAAAAAISI4EBQq3/AQUI/wEDA/8CAwX/BQoP/woRGf8KEhv/BgwR/wMEB/8CAwT/AQME/wEwgv8BCxX/AAAAAAAAAAAAAAAAAUrA/wEqbf8BAQL/AAEB/wECA/8CAwT/AgME/wIDA/8AAQH/AAAA/wEdSf8EgfL/AAAAAAAAAAAAAAAAAAAAAAAAAABA4/3/AUzA/wEHDf8AAAD/AAAA/wAAAP8AAAD/AQQH/wE6n/9c6v3/AAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADiz8f97/f//AZL8/wFRyP8BTsP/AYX1/172//9dzfn/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGrK/Gml5///s+r//2/R+9MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+B8AAPAHAADgAwAAwAMAAIABAACAAQAAgAEAAIABAACAAQAAgAEAAIABAADAAwAA4AcAAPAPAAD+PwAA//8AAA==")
-
         self.pages["/"] = self.pages["/header"] + """<script language="javascript">function Start(){
         target=document.getElementById("target").value
         String.prototype.startsWith = function(prefix){
@@ -276,7 +281,7 @@ function checkActive(){
 use <u>automated</u> gathering methods to provides
 you information about a target.
 
-  <a href="https://orb.03c8.net" target="_blank">Website</a> | <a href="https://github.com/epsylon/orb" target="_blank">Code</a> | <a href="https://twitter.com/search?q=%23orb-pentest" target="_blank">Social Tag</a> 
+  <a href="https://orb.03c8.net" target="_blank">Website</a> | <a href="https://code.03c8.net/epsylon/orb" target="_blank">Code</a> | <a href="https://github.com/epsylon/orb" target="_blank">Mirror</a> | <a href="https://blockchain.info/address/19aXfJtoYJUoXEZtjNwsah2JKN9CK5Pcjw" target="_blank">Donate</a> 
 
 ---------
 
@@ -348,10 +353,12 @@ function runCommandX(cmd,params) {
 }
 
 """
-	
     def buildGetParams(self, request):
         params = {}
-        path = re.findall("^GET ([^\s]+)", request)
+        try:
+            path = re.findall("^GET ([^\s]+)", request)
+        except:
+            path = re.findall("^GET ([^\s]+)", request.decode('utf-8'))
         if path:
             path = path[0]
             start = path.find("?")
@@ -362,14 +369,17 @@ function runCommandX(cmd,params) {
                         var = f[0]
                         value = f[1]
                         value = value.replace("+", " ")
-                        value = urllib.unquote(value)
+                        value = urlparse.unquote(value)
                         params[var] = value
         return params
 
     def get(self, request):
         cmd_options = ""
         runcmd = ""
-        res = re.findall("^GET ([^\s]+)", request)
+        try:
+            res = re.findall("^GET ([^\s]+)", request)
+        except:
+            res = re.findall("^GET ([^\s]+)", request.decode('utf-8'))
         if res is None or len(res)==0:
             return
         pGet = {}
