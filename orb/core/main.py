@@ -83,7 +83,9 @@ class Orb(object):
         if not self.options.gui: # generate report when no gui
             if not os.path.exists('reports/' + self.options.target):
                 os.makedirs('reports/' + self.options.target)
-            namefile = self.options.target + "_" + str(datetime.datetime.now())
+            # namefile = self.options.target + "_" + str(datetime.datetime.now())
+            namefile = self.options.target + "_" + datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
             if self.options.verbose:
                 print("\n[Verbose] - Generating log: " + 'reports/' + self.options.target + "/" + namefile + ".raw", "\n")
             self.report = open('reports/' + self.options.target + "/" + namefile + ".raw", 'a') # generate .raw file

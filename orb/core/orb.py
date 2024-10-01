@@ -356,9 +356,10 @@ function runCommandX(cmd,params) {
     def buildGetParams(self, request):
         params = {}
         try:
-            path = re.findall("^GET ([^\s]+)", request)
+            path = re.findall(r"^GET ([^\s]+)", request)
+
         except:
-            path = re.findall("^GET ([^\s]+)", request.decode('utf-8'))
+            path = re.findall(r"^GET ([^\s]+)", request.decode('utf-8'))
         if path:
             path = path[0]
             start = path.find("?")
@@ -377,9 +378,9 @@ function runCommandX(cmd,params) {
         cmd_options = ""
         runcmd = ""
         try:
-            res = re.findall("^GET ([^\s]+)", request)
+            res = re.findall(r"^GET ([^\s]+)", request)
         except:
-            res = re.findall("^GET ([^\s]+)", request.decode('utf-8'))
+            res = re.findall(r"^GET ([^\s]+)", request.decode('utf-8'))
         if res is None or len(res)==0:
             return
         pGet = {}
